@@ -10,6 +10,10 @@ GAZEBASE_LABEL_GROUPING = ['task_name']
 GAZEBASE_INSTANCE_GROUPING = ['round_id', 'subject_id','session_id','task_name']
 GAZEBASE_SPLITTING_CRITERION = 'subject_id'
 
+COPCO_LABEL_PATH = 'data/participant_stats.csv'
+COPCO_LABEL_GROUPING = ['book_name', 'subject_id']
+COPCO_INSTANCE_GROUPING = ['book_name', 'subject_id', 'screen_id']
+COPCO_SPLITTING_CRITERION = 'subject_id'
 
 # we allow 3 event_types: 'Fixation', 'Saccade', or 'None'
 event_name_dict = {
