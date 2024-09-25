@@ -14,6 +14,7 @@ from tqdm import tqdm
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import GroupKFold
+from sklearn.metrics import accuracy_score
 from sklearn import metrics
 
 import preprocessing.feature_extraction as feature_extraction
@@ -37,6 +38,7 @@ def get_argument_parser() -> argparse.Namespace:
     args = parser.parse_args()
     return args
     
+
 
 def get_feature_matrix(dataset,
                     sampling_rate,
@@ -132,7 +134,7 @@ def get_feature_matrix(dataset,
 
 
 def evaluate_model(args):
-    dataset = args.dataset
+    dataset_name = args.dataset
     label_column = args.label_column
     save_dir = args.save_dir
     detection_method = args.detection_method    
@@ -155,7 +157,7 @@ def evaluate_model(args):
     n_splits = config.n_splits
         
     
-    if args.dataset == 'sbsat':
+    if dataset_name == 'sbsat':
         label_grouping = config.SBSAT_LABEL_GROUPING
         instance_grouping = config.SBSAT_INSTANCE_GROUPING
         splitting_criterion = config.SBSAT_SPLITTING_CRITERION
@@ -247,7 +249,11 @@ def evaluate_model(args):
         bin_label = np.zeros([len(y),])
         bin_label[y >= label_mean] = 1.
         y = bin_label
-    elif args.dataset == 'gazebase':
+    elif dataset_name == 'gazebase':
+        label_grouping = config.GAZEBASE_LABEL_GROUPING
+        instance_grouping = config.GAZEBASE_INSTANCE_GROUPING
+        splitting_criterion = config.GAZEBASE_SPLITTING_CRITERION
+        
         dataset = pm.Dataset("GazeBase", path='data/GazeBase')
         try:
             dataset.load(subset = {#'subject_id':[1,2,3,4],
@@ -312,8 +318,9 @@ def evaluate_model(args):
 
         best_parameters = rf.best_params_
         pred_proba = rf.predict_proba(X_test)
-        
-        acc = sklearn.metrics.accuracy_score(y_test, predictions)
+        predictions = rf.predict(X_test)
+
+        acc = accuracy_score(y_test, predictions)
         accs.append(acc)
         
         if len(np.unique(y_train)) == 2:        
@@ -321,13 +328,9 @@ def evaluate_model(args):
             auc = metrics.auc(fpr, tpr)
             aucs.append(auc)
             print('AUC in fold ' + str(i+1) + ': ' + str(auc))
-        else:
-            predictions = rf.predict(X_test)
-            acc = sklearn.metrics.accuracy_score(y_test, predictions)
-            accs.append(acc)
         joblib.dump({'y_test':y_test,
                      'pred':pred_proba},
-                    save_dir + '/' + dataset + '_' + label_column + '_' + result_prefix +\
+                    save_dir + '/' + dataset_name + '_' + label_column + '_' + result_prefix +\
                                 '_' + detection_params + '_fold_' + str(i) + '.joblib',
                     compress=3, protocol=2)
     
@@ -337,7 +340,7 @@ def evaluate_model(args):
     else:
         res_df = pl.DataFrame({'fold':np.arange(len(aucs)),
                       'acc': accs})
-    res_df.write_csv(save_dir + '/' + dataset + '_' + label_column + '_' + result_prefix +\
+    res_df.write_csv(save_dir + '/' + dataset_name + '_' + label_column + '_' + result_prefix +\
                     '_' + detection_params + '.csv')
     
     
