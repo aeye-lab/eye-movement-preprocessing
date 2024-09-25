@@ -22,10 +22,9 @@ import config.config as config
 def get_argument_parser() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', '-d', type=str, default='sbsat')
-    parser.add_argument('--label-grouping', '-s', type=str, default='book_name,subject_id')
     parser.add_argument(
         '--label-column', type=str, default='native',
-        choices=['acc', 'difficulty', 'subj_acc', 'native'],
+        choices=['acc', 'difficulty', 'subj_acc', 'native', 'task_name'],
     )
     parser.add_argument(
         '--save-dir', type=str,
@@ -48,6 +47,8 @@ def get_feature_matrix(dataset,
                     feature_aggregations,
                     detection_method,
                     label_grouping,
+                    instance_grouping,
+                    splitting_criterion,
                     ):
                         
     event_name_dict = config.event_name_dict
@@ -56,10 +57,10 @@ def get_feature_matrix(dataset,
                         
     num_add = 1000
     group_names = []
+    splitting_names = []
     iter_counter = 0
 
     for i in tqdm(np.arange(len(dataset.gaze))):
-        #print('i: ' + str(i))
         cur_gaze_df = dataset.gaze[i]
         try:
             cur_gaze_df.unnest()
@@ -75,16 +76,34 @@ def get_feature_matrix(dataset,
             cur_event = cur_event_df[event_id]
             cur_onset_time = cur_event_df[event_id]['onset'][0]
             cur_offset_time = cur_event_df[event_id]['offset'][0]
-            cur_onset_id = cur_gaze_df.with_row_index().filter(pl.col('time') == cur_onset_time)['index'][0]
-            cur_offset_id = cur_gaze_df.with_row_index().filter(pl.col('time') == cur_offset_time)['index'][0]
+            if 'index' in cur_gaze_df.columns:
+                cur_onset_id = cur_gaze_df.filter(pl.col('time') == cur_onset_time)['index'][0]
+                cur_offset_id = cur_gaze_df.filter(pl.col('time') == cur_offset_time)['index'][0]
+            else:
+                cur_onset_id = cur_gaze_df.with_row_index().filter(pl.col('time') == cur_onset_time)['index'][0]
+                cur_offset_id = cur_gaze_df.with_row_index().filter(pl.col('time') == cur_offset_time)['index'][0]
             event_type[cur_onset_id:cur_offset_id] = event_name_code_dict[event_name_dict[cur_event_df[event_id]['name'][0]]]
-        
-        non_ids = np.where(cur_gaze_df['velocity_x'].is_null())[0]
+
+        if 'postion_x' in cur_gaze_df.columns:
+            pos_x = np.array(cur_gaze_df['position_x'].is_null())
+        else:
+            pos_x = np.zeros([cur_gaze_df.shape[0],])
+        if 'velocity_x' in cur_gaze_df.columns:
+            vel_x = np.array(cur_gaze_df['velocity_x'].is_null())
+        else:
+            vel_x = np.zeros([cur_gaze_df.shape[0],])
+        if 'pixel_x' in cur_gaze_df.columns:
+            pix_x = np.array(cur_gaze_df['pixel_x'].is_null())
+        else:
+            pix_x = np.zeros([cur_gaze_df.shape[0],])
+        null_ids = np.logical_or(pos_x,
+                             np.logical_or(vel_x,
+                            np.array(pix_x)))
+        non_ids = np.where(null_ids)[0]     
         event_type[non_ids] = -1
         cur_gaze_df = cur_gaze_df.with_columns(pl.Series(name="event_type", values=event_type))
         
-        for name, data in cur_gaze_df.group_by(label_grouping):
-            #print('name: ' + str(name))
+        for name, data in cur_gaze_df.group_by(instance_grouping):
             # extract features
             combined_features, combined_feature_names = feature_extraction.compute_features(data,
                             sampling_rate,
@@ -99,25 +118,29 @@ def get_feature_matrix(dataset,
                 group_names = []
             while feature_matrix.shape[0] <= iter_counter:
                 feature_matrix = np.concatenate([feature_matrix, np.zeros([num_add, len(combined_features)])], axis=0)
-            group_names.append(name)
+            label_tuple = []
+            for jj in range(len(label_grouping)):
+                label_tuple.append(str(data[label_grouping[jj]][0]))
+            label_tuple = '_'.join(label_tuple)
+            group_names.append(label_tuple)
+            splitting_names.append(data[splitting_criterion][0])
             feature_matrix[iter_counter,:] = combined_features
             iter_counter += 1
     feature_matrix = feature_matrix[0:iter_counter,:]
     feature_matrix[np.isnan(feature_matrix)] = 0.0
-    return feature_matrix, group_names
+    return feature_matrix, group_names, splitting_names
 
 
 def evaluate_model(args):
-    label_grouping = list(args.label_grouping.split(','))
     dataset = args.dataset
     label_column = args.label_column
     save_dir = args.save_dir
     detection_method = args.detection_method    
     result_prefix = detection_method
     sampling_rate = args.sampling_rate
+    detection_params = ''
     
-    # load config data
-    label_path = config.SBSAT_LABEL_PATH
+    # load config data    
     event_name_dict = config.event_name_dict
     event_name_code_dict = config.event_name_code_dict
     detection_method_default_event = config.detection_method_default_event
@@ -130,21 +153,51 @@ def evaluate_model(args):
     param_grid = config.param_grid
     grid_search_verbosity = config.grid_search_verbosity
     n_splits = config.n_splits
-    
-    # load labels
-    label_df = pl.read_csv(label_path)
-    
-    
-    print(' === Loading data ===')
-    label_mean = np.mean(label_df[label_column].to_numpy())
+        
     
     if args.dataset == 'sbsat':
+        label_grouping = config.SBSAT_LABEL_GROUPING
+        instance_grouping = config.SBSAT_INSTANCE_GROUPING
+        splitting_criterion = config.SBSAT_SPLITTING_CRITERION
+        
+        label_path = config.SBSAT_LABEL_PATH
+        # load labels
+        label_df = pl.read_csv(label_path)
+        
+        print(' === Loading data ===')
+        label_mean = np.mean(label_df[label_column].to_numpy())
+        
         dataset = pm.Dataset("SBSAT", path='data/SBSAT')
         try:
-            dataset.load()
+            dataset.load(
+                #subset={'subject_id':[1,2,3,4,5,6,7,8,9,10]}
+                )
         except:
             dataset.download()
-            dataset.load()
+            dataset.load(
+                #subset={'subject_id':[1,2,3,4,5,6,7,8,9,10]}
+            )
+        
+        deleted_instances = 0
+        instance_count = 0
+        # Preprocessing
+        # delete screens with errors (time difference not constant)
+        for i in tqdm(np.arange(len(dataset.gaze))):
+            cur_gaze_df = dataset.gaze[i].frame.with_row_index()
+            delete_ids = []
+            for name, data in cur_gaze_df.group_by(instance_grouping):
+                timesteps_diff = np.diff(list(data['time']))
+                number_steps = len(np.unique(timesteps_diff))
+                if number_steps > 1:
+                    delete_ids += list(data['index'])
+                    deleted_instances+= 1
+                instance_count += 1
+            dataset.gaze[i].frame = dataset.gaze[i].frame.with_row_index().filter(~pl.col("index").is_in(delete_ids))            
+        print(' === Evaluating model ===')
+        print('    deleted instances: ' + str(deleted_instances) +\
+                ' (' + str(np.round(deleted_instances/instance_count*100.,decimals=2)) + '%)')
+        
+        
         
         # transform pixel coordinates to degrees of visual angle
         dataset.pix2deg()
@@ -156,7 +209,7 @@ def evaluate_model(args):
         dataset.detect(detection_method)
         
         # create features
-        feature_matrix, group_names = get_feature_matrix(dataset,
+        feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
                                 sampling_rate,
                                 blink_threshold,
                                 blink_window_size,
@@ -165,6 +218,8 @@ def evaluate_model(args):
                                 feature_aggregations,
                                 detection_method,
                                 label_grouping,
+                                instance_grouping,
+                                splitting_criterion,
                                 )
         
         # create label
@@ -174,14 +229,16 @@ def evaluate_model(args):
         for group in label_grouping:
             label_group_list[group] = list(label_df[group])
         for i in range(label_df.shape[0]):
-            cur_tuple = tuple(label_group_list[a][i] for a in label_group_list)
+            cur_tuple = '_'.join([str(label_group_list[a][i]) for a in label_group_list])
             label_dict[cur_tuple] = label[i]
         
         y = []
         subjects = []
-        for c_tuple in group_names:
+        for i in range(len(group_names)):
+            c_tuple = group_names[i]
+            c_subject = splitting_names[i]
             y.append(label_dict[c_tuple])
-            subjects.append(c_tuple[1])
+            subjects.append(c_subject)
 
         y = np.array(y)
         subjects = np.array(subjects)
@@ -190,13 +247,53 @@ def evaluate_model(args):
         bin_label = np.zeros([len(y),])
         bin_label[y >= label_mean] = 1.
         y = bin_label
+    elif args.dataset == 'gazebase':
+        dataset = pm.Dataset("GazeBase", path='data/GazeBase')
+        try:
+            dataset.load(subset = {#'subject_id':[1,2,3,4],
+                                   'task_name': ['BLG', 'FXS', 'HSS', 'RAN', 'TEX', 'VD1'],
+                                  })
+        except:
+            dataset.download()
+            dataset.load(subset = {#'subject_id':[1,2,3,4],
+                                   'task_name': ['BLG', 'FXS', 'HSS', 'RAN', 'TEX', 'VD1'],
+                                  })
+        
+        # transform positional data to velocity data
+        dataset.pos2vel()
+        
+        # detect events
+        dataset.detect(detection_method)
+        
+        # create features
+        feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
+                                sampling_rate,
+                                blink_threshold,
+                                blink_window_size,
+                                blink_min_duration,
+                                blink_velocity_threshold,
+                                feature_aggregations,
+                                detection_method,
+                                label_grouping,
+                                instance_grouping,
+                                splitting_criterion,
+                                )
+        
+        from sklearn.preprocessing import LabelEncoder
+        label_names = np.array(group_names)
+        label_encoder = LabelEncoder()
+        y = label_encoder.fit_transform(label_names)                
+        subjects = np.array(splitting_names)
+        
     else:
         raise RuntimeError('Error: not implemented')
     
     print(' === Evaluating model ===')
+    print(' === Number of subjects: ' + str(len(np.unique(subjects))) + ' === ')
     # split by subjects
     group_kfold = GroupKFold(n_splits=n_splits)
     aucs = []
+    accs = []
     for i, (train_index, test_index) in enumerate(group_kfold.split(feature_matrix, y, subjects)):
         X_train = feature_matrix[train_index]
         y_train = y[train_index]
@@ -216,20 +313,32 @@ def evaluate_model(args):
         best_parameters = rf.best_params_
         pred_proba = rf.predict_proba(X_test)
         
-        fpr, tpr, _ = metrics.roc_curve(y_test, pred_proba[:,1], pos_label=1)
-        auc = metrics.auc(fpr, tpr)
-        aucs.append(auc)
+        acc = sklearn.metrics.accuracy_score(y_test, predictions)
+        accs.append(acc)
+        
+        if len(np.unique(y_train)) == 2:        
+            fpr, tpr, _ = metrics.roc_curve(y_test, pred_proba[:,1], pos_label=1)
+            auc = metrics.auc(fpr, tpr)
+            aucs.append(auc)
+            print('AUC in fold ' + str(i+1) + ': ' + str(auc))
+        else:
+            predictions = rf.predict(X_test)
+            acc = sklearn.metrics.accuracy_score(y_test, predictions)
+            accs.append(acc)
         joblib.dump({'y_test':y_test,
-                     'pred':pred_proba[:,1]},
-                    save_dir + label_column + '_' + result_prefix + '_fold_' + str(i) + '.joblib',
+                     'pred':pred_proba},
+                    save_dir + '/' + dataset + '_' + label_column + '_' + result_prefix +\
+                                '_' + detection_params + '_fold_' + str(i) + '.joblib',
                     compress=3, protocol=2)
-        print('AUC in fold ' + str(i+1) + ': ' + str(auc))
     
-    
-    aucs = np.random.random([5,])
-    res_df = pl.DataFrame({'fold':np.arange(len(aucs)),
-                  'auc': aucs})
-    res_df.write_csv(save_dir + '/' + label_column + '_' + result_prefix + '.csv')
+    if len(aucs) > 0:
+        res_df = pl.DataFrame({'fold':np.arange(len(aucs)),
+                      'auc': aucs})
+    else:
+        res_df = pl.DataFrame({'fold':np.arange(len(aucs)),
+                      'acc': accs})
+    res_df.write_csv(save_dir + '/' + dataset + '_' + label_column + '_' + result_prefix +\
+                    '_' + detection_params + '.csv')
     
     
     

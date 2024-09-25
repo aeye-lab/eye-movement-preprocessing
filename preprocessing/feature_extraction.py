@@ -1644,8 +1644,14 @@ def compute_features(input_df,
                     blink_velocity_threshold,
                     feature_aggregations
                     ):
-    x_pixel = np.array(input_df['pixel_x'])
-    y_pixel = np.array(input_df['pixel_y'])
+    if 'pixel_x' not in input_df.columns:
+        x_pixel = np.zeros([input_df.shape[0],])
+    else:
+        x_pixel = np.array(input_df['pixel_x'])
+    if 'pixel_y' not in input_df.columns:
+        y_pixel = np.zeros([input_df.shape[0],])
+    else:
+        y_pixel = np.array(input_df['pixel_y'])
     if 'eye_closure' in input_df.columns:            
         eye_closures = np.array(input_df['eye_closure'])
     else:
