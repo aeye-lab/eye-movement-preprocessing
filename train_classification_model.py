@@ -285,6 +285,31 @@ def evaluate_model(args):
         y = label_encoder.fit_transform(label_names)                
         subjects = np.array(splitting_names)
         
+
+    elif args.dataset == 'copco':
+        label_grouping = config.COPCO_LABEL_GROUPING
+        instance_grouping = config.COPCO_INSTANCE_GROUPING
+        splitting_criterion = config.COPCO_SPLITTING_CRITERION
+        
+        # load labels
+        label_df = pl.read_csv(config.COPCO_LABEL_PATH)
+        label_df = label_df.with_columns(
+            pl.when(
+                # L1 without dyslexia
+                (pl.col('native_language').is_in({'Danish'})) & (pl.col('dyslexia').is_in({'no'})))
+                    .then(0)
+                # L1 with dyslexia
+                .when((pl.col('native_language').is_in({'Danish'})) & (pl.col('dyslexia').is_in({'yes'})))
+                    .then(1)
+                # L2
+                .otherwise(2)
+            .alias('')
+        )
+        label_df = label_df.rename(
+            {'subj': 'subject_id'},
+            {'acc': 'comprehension_accuracy'},
+            {'subj_acc': 'score_reading_comprehension_test'},
+        )
     else:
         raise RuntimeError('Error: not implemented')
     
