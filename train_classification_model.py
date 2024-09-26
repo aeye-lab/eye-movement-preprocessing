@@ -33,7 +33,18 @@ def get_argument_parser() -> argparse.Namespace:
     )
     parser.add_argument(
         '--sampling-rate', type=int, default=1000)
-        
+    parser.add_argument(
+        '--minimum-duration', type=int,
+        default=100,
+    )
+    parser.add_argument(
+        '--dispersion-threshold', type=float,
+        default=1.0,
+    )
+    parser.add_argument(
+        '--velocity-threshold', type=float,
+        default=20.0,
+    )
     parser.add_argument('--detection-method', type=str, default='ivt')
     args = parser.parse_args()
     return args
@@ -139,8 +150,29 @@ def evaluate_model(args):
     save_dir = args.save_dir
     detection_method = args.detection_method    
     result_prefix = detection_method
-    sampling_rate = args.sampling_rate
-    detection_params = ''
+    sampling_rate = args.sampling_rate    
+    
+    # detection method params
+    minimum_duration = args.minimum_duration
+    dispersion_threshold = args.dispersion_threshold
+    velocity_threshold = args.velocity_threshold
+    
+    if detection_method == 'ivt':
+        detection_params = {'minimum_duration': minimum_duration,
+                            'velocity_threshold': velocity_threshold,
+                        }
+    elif detection_method == 'idt':
+        detection_params = {'minimum_duration': minimum_duration,
+                            'dispersion_threshold': dispersion_threshold,
+                        }
+    elif detection_method == 'microsaccades':
+        detection_params = {'minimum_duration': minimum_duration,
+                        }
+    
+    detection_param_string = ''
+    for key in detection_params:
+        detection_param_string += str(key) + '_' + str(detection_params[key]) + '_'
+    detection_param_string = detection_param_string[0:len(detection_param_string)-1]
     
     # load config data    
     event_name_dict = config.event_name_dict
@@ -208,7 +240,7 @@ def evaluate_model(args):
         dataset.pos2vel()
         
         # detect events
-        dataset.detect(detection_method)
+        dataset.detect(detection_method, **detection_params)
         
         # create features
         feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
@@ -256,7 +288,7 @@ def evaluate_model(args):
         
         dataset = pm.Dataset("GazeBase", path='data/GazeBase')
         try:
-            dataset.load(subset = {#'subject_id':[1,2,3,4],
+            dataset.load(subset = {#'subject_id':[1,2,3,4,5,6,7,8,9,10],
                                    'task_name': ['BLG', 'FXS', 'HSS', 'RAN', 'TEX', 'VD1'],
                                   })
         except:
@@ -269,7 +301,7 @@ def evaluate_model(args):
         dataset.pos2vel()
         
         # detect events
-        dataset.detect(detection_method)
+        dataset.detect(detection_method, **detection_params)
         
         # create features
         feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
@@ -356,17 +388,17 @@ def evaluate_model(args):
         joblib.dump({'y_test':y_test,
                      'pred':pred_proba},
                     save_dir + '/' + dataset_name + '_' + label_column + '_' + result_prefix +\
-                                '_' + detection_params + '_fold_' + str(i) + '.joblib',
+                                '_' + detection_param_string + '_fold_' + str(i) + '.joblib',
                     compress=3, protocol=2)
     
     if len(aucs) > 0:
         res_df = pl.DataFrame({'fold':np.arange(len(aucs)),
                       'auc': aucs})
     else:
-        res_df = pl.DataFrame({'fold':np.arange(len(aucs)),
+        res_df = pl.DataFrame({'fold':np.arange(len(accs)),
                       'acc': accs})
     res_df.write_csv(save_dir + '/' + dataset_name + '_' + label_column + '_' + result_prefix +\
-                    '_' + detection_params + '.csv')
+                    '_' + detection_param_string + '.csv')
     
     
     

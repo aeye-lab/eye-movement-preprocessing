@@ -3,12 +3,14 @@ SBSAT_LABEL_PATH = 'data/18sat_labels.csv'
 SBSAT_LABEL_GROUPING = ['book_name', 'subject_id']
 SBSAT_INSTANCE_GROUPING = ['book_name', 'subject_id', 'screen_id']
 SBSAT_SPLITTING_CRITERION = 'subject_id'
+SBSAT_LABELS = ['acc', 'difficulty', 'subj_acc', 'native']
 
 
 # GAZEBASE DATA
 GAZEBASE_LABEL_GROUPING = ['task_name']
 GAZEBASE_INSTANCE_GROUPING = ['round_id', 'subject_id','session_id','task_name']
 GAZEBASE_SPLITTING_CRITERION = 'subject_id'
+GAZBASE_LABELS = ['task_name']
 
 COPCO_LABEL_PATH = 'data/participant_stats.csv'
 COPCO_LABEL_GROUPING = ['book_name', 'subject_id']
@@ -47,9 +49,23 @@ blink_velocity_threshold=0.1
 param_grid={
         'n_estimators': [500, 1000],
         'max_features': ['auto', 'sqrt', 'log2'],
-        'max_depth': [2, 4, 8, 16, 32, None],
+        'max_depth': [32, 64, 128, None],
         'criterion': ['entropy'],
         'n_jobs': [-1],
     }
 grid_search_verbosity = 10
 n_splits = 5
+
+
+
+microsaccades_detection_params = {
+                        'minimum_duration': [5, 10, 15, 20]
+                        }
+idt_detection_params = {
+                        'minimum_duration': [10, 50, 100, 200],
+                        'dispersion_threshold': [0.5, 1.0, 1.5],
+                       }
+ivt_detection_params = {
+                        'minimum_duration': [10, 50, 100, 200],
+                        'velocity_threshold': [5., 10., 20., 30., 40.],
+                       }
