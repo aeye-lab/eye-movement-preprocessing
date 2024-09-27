@@ -12,10 +12,18 @@ GAZEBASE_INSTANCE_GROUPING = ['round_id', 'subject_id','session_id','task_name']
 GAZEBASE_SPLITTING_CRITERION = 'subject_id'
 GAZBASE_LABELS = ['task_name']
 
+# COPCO
 COPCO_LABEL_PATH = 'data/participant_stats.csv'
 COPCO_LABEL_GROUPING = ['book_name', 'subject_id']
 COPCO_INSTANCE_GROUPING = ['book_name', 'subject_id', 'screen_id']
 COPCO_SPLITTING_CRITERION = 'subject_id'
+
+# POTEC
+POTEC_LABEL_PATH = 'data/potec_label.tsv'
+POTEC_LABEL_GROUPING = ['subject_id', 'text_id']
+POTEC_INSTANCE_GROUPING = ['subject_id', 'text_id']
+POTEC_SPLITTING_CRITERION = 'subject_id'
+POTEC_LABELS = ['familarity'] # familarity: label == 1, if text from own field
 
 # we allow 3 event_types: 'Fixation', 'Saccade', or 'None'
 event_name_dict = {

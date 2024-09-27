@@ -25,7 +25,7 @@ def get_argument_parser() -> argparse.Namespace:
     parser.add_argument('--dataset', '-d', type=str, default='sbsat')
     parser.add_argument(
         '--label-column', type=str, default='native',
-        choices=['acc', 'difficulty', 'subj_acc', 'native', 'task_name'],
+        choices=['acc', 'difficulty', 'subj_acc', 'native', 'task_name', 'familarity'],
     )
     parser.add_argument(
         '--save-dir', type=str,
@@ -192,9 +192,9 @@ def evaluate_model(args):
     if dataset_name == 'sbsat':
         label_grouping = config.SBSAT_LABEL_GROUPING
         instance_grouping = config.SBSAT_INSTANCE_GROUPING
-        splitting_criterion = config.SBSAT_SPLITTING_CRITERION
-        
+        splitting_criterion = config.SBSAT_SPLITTING_CRITERION        
         label_path = config.SBSAT_LABEL_PATH
+        
         # load labels
         label_df = pl.read_csv(label_path)
         
@@ -322,8 +322,6 @@ def evaluate_model(args):
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(label_names)                
         subjects = np.array(splitting_names)
-        
-
     elif args.dataset == 'copco':
         label_grouping = config.COPCO_LABEL_GROUPING
         instance_grouping = config.COPCO_INSTANCE_GROUPING
@@ -348,6 +346,97 @@ def evaluate_model(args):
             {'acc': 'comprehension_accuracy'},
             {'subj_acc': 'score_reading_comprehension_test'},
         )
+    elif args.dataset == 'potec':
+        label_grouping = config.POTEC_LABEL_GROUPING
+        instance_grouping = config.POTEC_INSTANCE_GROUPING
+        splitting_criterion = config.POTEC_SPLITTING_CRITERION        
+        label_path = config.POTEC_LABEL_PATH
+
+        # load labels
+        label_df = pl.read_csv(label_path, separator='\t')
+
+        print(' === Loading data ===')
+        dataset = pm.Dataset("PoTeC", path='data/PoTeC')
+        try:
+            dataset.load(
+                #subset={'subject_id':[1,105]}
+                )
+        except:
+            dataset.download()
+            dataset.load(
+                #subset={'subject_id':[1,105]}
+            )
+
+        deleted_instances = 0
+        instance_count = 0
+        # Preprocessing
+        # delete screens with errors (time difference not constant)
+        for i in tqdm(np.arange(len(dataset.gaze))):
+            cur_gaze_df = dataset.gaze[i].frame.with_row_index()
+            delete_ids = []
+            for name, data in cur_gaze_df.group_by(instance_grouping):
+                timesteps_diff = np.diff(list(data['time']))
+                number_steps = len(np.unique(timesteps_diff))
+                if number_steps > 1:
+                    delete_ids += list(data['index'])
+                    deleted_instances+= 1
+                instance_count += 1
+            dataset.gaze[i].frame = dataset.gaze[i].frame.with_row_index().filter(~pl.col("index").is_in(delete_ids))            
+        print(' === Evaluating model ===')
+        print('    deleted instances: ' + str(deleted_instances) +\
+                ' (' + str(np.round(deleted_instances/instance_count*100.,decimals=2)) + '%)')
+
+
+
+        # transform pixel coordinates to degrees of visual angle
+        dataset.pix2deg()
+
+        # transform positional data to velocity data
+        dataset.pos2vel()
+
+        # detect events
+        dataset.detect(detection_method, **detection_params)
+        
+        # create features
+        feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
+                                sampling_rate,
+                                blink_threshold,
+                                blink_window_size,
+                                blink_min_duration,
+                                blink_velocity_threshold,
+                                feature_aggregations,
+                                detection_method,
+                                label_grouping,
+                                instance_grouping,
+                                splitting_criterion,
+                                )
+        # create labels
+        reader_ids = list(label_df['reader_id'])
+        reader_domains = list(label_df['reader_domain'])
+        reader_domain_dict = dict()
+        for i in range(len(reader_domains)):
+            reader_domain_dict[reader_ids[i]] = reader_domains[i]
+
+        # create label
+        if label_column == 'familarity':
+            y = []
+            for i in range(len(group_names)):
+                split_name = group_names[i].split('_')
+                cur_user = int(split_name[0])
+                cur_text = split_name[1]
+                if   reader_domain_dict[cur_user] == 'physics' and cur_text.startswith('p'):
+                    y.append(1)
+                elif reader_domain_dict[cur_user] == 'biology' and cur_text.startswith('b'):
+                    y.append(1)
+                elif reader_domain_dict[cur_user] == 'biology' and cur_text.startswith('p'):
+                    y.append(0)
+                elif reader_domain_dict[cur_user] == 'physics' and cur_text.startswith('b'):
+                    y.append(0)
+                else:
+                    raise RuntimeError('Error: no conversion to label possible')
+        else:
+            raise RuntimeError('Error: label not implemented')
+        subjects = splitting_names
     else:
         raise RuntimeError('Error: not implemented')
     
