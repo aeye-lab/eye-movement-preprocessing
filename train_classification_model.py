@@ -354,17 +354,26 @@ def evaluate_model(args):
 
         # load labels
         label_df = pl.read_csv(label_path, separator='\t')
-
+        
+        # create labels
+        reader_ids = list(label_df['reader_id'])
+        reader_domains = list(label_df['reader_domain'])
+        reader_domain_dict = dict()
+        for i in range(len(reader_domains)):
+            reader_domain_dict[reader_ids[i]] = reader_domains[i]
+        
         print(' === Loading data ===')
         dataset = pm.Dataset("PoTeC", path='data/PoTeC')
         try:
             dataset.load(
-                #subset={'subject_id':[1,105]}
-                )
+                subset={'subject_id':reader_ids,
+                }#,105]}
+            )
         except:
             dataset.download()
             dataset.load(
-                #subset={'subject_id':[1,105]}
+                subset={'subject_id':reader_ids
+                }
             )
 
         deleted_instances = 0
@@ -410,13 +419,6 @@ def evaluate_model(args):
                                 instance_grouping,
                                 splitting_criterion,
                                 )
-        # create labels
-        reader_ids = list(label_df['reader_id'])
-        reader_domains = list(label_df['reader_domain'])
-        reader_domain_dict = dict()
-        for i in range(len(reader_domains)):
-            reader_domain_dict[reader_ids[i]] = reader_domains[i]
-
         # create label
         if label_column == 'familarity':
             y = []
@@ -440,6 +442,7 @@ def evaluate_model(args):
     else:
         raise RuntimeError('Error: not implemented')
     
+    y = np.array(y)
     print(' === Evaluating model ===')
     print(' === Number of subjects: ' + str(len(np.unique(subjects))) + ' === ')
     # split by subjects
