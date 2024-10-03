@@ -81,7 +81,6 @@ def get_feature_matrix(dataset,
         except:
             print('Warning: maybe already unnested')
         cur_gaze_df = cur_gaze_df.frame
-        # Fix for GazeBaseVR
         if 'position_xl' in cur_gaze_df.columns:
             cur_gaze_df =  cur_gaze_df.rename({'position_xl':'position_x',
                                 'position_yl':'position_y',
@@ -101,8 +100,8 @@ def get_feature_matrix(dataset,
                 cur_onset_id = cur_gaze_df.filter(pl.col('time') == cur_onset_time)['index'][0]
                 cur_offset_id = cur_gaze_df.filter(pl.col('time') == cur_offset_time)['index'][0]
             else:
-                cur_onset_id = cur_gaze_df.with_row_index().filter(pl.col('time') == cur_onset_time)['index'][0]
-                cur_offset_id = cur_gaze_df.with_row_index().filter(pl.col('time') == cur_offset_time)['index'][0]
+                cur_onset_id = cur_gaze_df.with_row_index().filter(pl.col('time').cast(int) == cur_onset_time)['index'][0]
+                cur_offset_id = cur_gaze_df.with_row_index().filter(pl.col('time').cast(int) == cur_offset_time)['index'][0]
             event_type[cur_onset_id:cur_offset_id] = event_name_code_dict[event_name_dict[cur_event_df[event_id]['name'][0]]]
 
         if 'postion_x' in cur_gaze_df.columns:
@@ -668,6 +667,67 @@ def evaluate_model(args):
         else:
             raise RuntimeError('Error: label not implemented')
         subjects = splitting_names
+    elif dataset_name == 'hbn':
+        label_grouping = config.HBN_LABEL_GROUPING
+        instance_grouping = config.HBN_INSTANCE_GROUPING
+        splitting_criterion = config.HBN_SPLITTING_CRITERION        
+        label_path = config.HBN_LABEL_PATH
+        max_len = config.HBN_MAXLEN
+        
+        # load labels
+        label_df = pl.read_csv(label_path, separator='\t')
+        
+        print(' === Loading data ===')
+        
+        dataset = pm.Dataset("HBN", path='data/HBN')
+
+        try:
+            dataset.load(
+                # subset={'subject_id': ['NDARAJ807UYR', 'NDARMF939FNX', 'NDARZZ740MLM', 'NDARZZ740ML']},
+                subset={'subject_id': label_df['Patient_ID'].to_list()}
+            )
+        except:
+            dataset.download()
+            dataset.load(
+                # subset={'subject_id': ['NDARAJ807UYR', 'NDARMF939FNX', 'NDARZZ740MLM', 'NDARZZ740ML']},
+                subset={'subject_id': label_df['Patient_ID'].to_list()}
+            )
+
+        sampling_rate = dataset.definition.experiment.sampling_rate
+        print(' === Evaluating model ===')
+        # transform pixel coordinates to degrees of visual angle
+        dataset.pix2deg()
+        
+        # transform positional data to velocity data
+        dataset.pos2vel()
+        
+        # detect events
+        dataset.detect(detection_method, **detection_params)
+        
+        # create features
+        feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
+                                sampling_rate,
+                                blink_threshold,
+                                blink_window_size,
+                                blink_min_duration,
+                                blink_velocity_threshold,
+                                feature_aggregations,
+                                detection_method,
+                                label_grouping,
+                                instance_grouping,
+                                splitting_criterion,
+                                max_len
+                                )
+        y = []
+        subjects = []
+        for i in range(len(group_names)):
+            c_tuple = group_names[i]
+            c_subject = splitting_names[i]
+            y.append(label_df.filter(pl.col('Patient_ID') == c_subject)['label'][0])
+            subjects.append(c_subject)
+
+        y = np.array(y)
+        subjects = np.array(subjects)
     else:
         raise RuntimeError('Error: not implemented')
     

@@ -6,6 +6,13 @@ SBSAT_SPLITTING_CRITERION = 'subject_id'
 SBSAT_LABELS = ['acc', 'difficulty', 'subj_acc', 'native']
 SBSAT_MAXLEN = None
 
+HBN_LABEL_PATH = 'data/sub_sel_classif.csv'
+HBN_LABEL_GROUPING = ['subject_id']
+HBN_INSTANCE_GROUPING = ['subject_id', 'video_id']
+HBN_SPLITTING_CRITERION = 'subject_id'
+HBN_LABELS = ['label']
+HBN_MAXLEN = None
+
 
 # GAZEBASE DATA
 GAZEBASE_LABEL_GROUPING = ['task_name']
