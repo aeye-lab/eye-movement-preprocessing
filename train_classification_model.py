@@ -62,6 +62,7 @@ def get_feature_matrix(dataset,
                     label_grouping,
                     instance_grouping,
                     splitting_criterion,
+                    max_len=None,
                     ):
                         
     event_name_dict = config.event_name_dict
@@ -80,6 +81,13 @@ def get_feature_matrix(dataset,
         except:
             print('Warning: maybe already unnested')
         cur_gaze_df = cur_gaze_df.frame
+        # Fix for GazeBaseVR
+        if 'position_xl' in cur_gaze_df.columns:
+            cur_gaze_df =  cur_gaze_df.rename({'position_xl':'position_x',
+                                'position_yl':'position_y',
+                                'velocity_xl':'velocity_x',
+                                'velocity_yl':'velocity_y',
+                               })
         cur_event_df = dataset.events[i].frame
 
         # add events to gaze df
@@ -117,6 +125,9 @@ def get_feature_matrix(dataset,
         cur_gaze_df = cur_gaze_df.with_columns(pl.Series(name="event_type", values=event_type))
         
         for name, data in cur_gaze_df.group_by(instance_grouping):
+            if max_len is not None:
+                if data.shape[0] > max_len:
+                    data = data[0:max_len,:]
             # extract features
             combined_features, combined_feature_names = feature_extraction.compute_features(data,
                             sampling_rate,
@@ -150,7 +161,7 @@ def evaluate_model(args):
     save_dir = args.save_dir
     detection_method = args.detection_method    
     result_prefix = detection_method
-    sampling_rate = args.sampling_rate    
+    #sampling_rate = args.sampling_rate    
     
     # detection method params
     minimum_duration = args.minimum_duration
@@ -194,6 +205,7 @@ def evaluate_model(args):
         instance_grouping = config.SBSAT_INSTANCE_GROUPING
         splitting_criterion = config.SBSAT_SPLITTING_CRITERION        
         label_path = config.SBSAT_LABEL_PATH
+        max_len = config.SBSAT_MAXLEN
         
         # load labels
         label_df = pl.read_csv(label_path)
@@ -211,7 +223,8 @@ def evaluate_model(args):
             dataset.load(
                 #subset={'subject_id':[1,2,3,4,5,6,7,8,9,10]}
             )
-        
+
+        sampling_rate = dataset.definition.experiment.sampling_rate
         deleted_instances = 0
         instance_count = 0
         # Preprocessing
@@ -254,6 +267,7 @@ def evaluate_model(args):
                                 label_grouping,
                                 instance_grouping,
                                 splitting_criterion,
+                                max_len
                                 )
         
         # create label
@@ -285,18 +299,24 @@ def evaluate_model(args):
         label_grouping = config.GAZEBASE_LABEL_GROUPING
         instance_grouping = config.GAZEBASE_INSTANCE_GROUPING
         splitting_criterion = config.GAZEBASE_SPLITTING_CRITERION
+        max_len = config.GAZEBASE_MAXLEN
         
         dataset = pm.Dataset("GazeBase", path='data/GazeBase')
         try:
             dataset.load(subset = {#'subject_id':[1,2,3,4,5,6,7,8,9,10],
                                    'task_name': ['BLG', 'FXS', 'HSS', 'RAN', 'TEX', 'VD1'],
+                                   'round_id': [1],
+                                   'session_id': [1],
                                   })
         except:
             dataset.download()
             dataset.load(subset = {#'subject_id':[1,2,3,4],
                                    'task_name': ['BLG', 'FXS', 'HSS', 'RAN', 'TEX', 'VD1'],
+                                   'round_id': [1],
+                                   'session_id': [1],
                                   })
-        
+
+        sampling_rate = dataset.definition.experiment.sampling_rate
         # transform positional data to velocity data
         dataset.pos2vel()
         
@@ -315,6 +335,60 @@ def evaluate_model(args):
                                 label_grouping,
                                 instance_grouping,
                                 splitting_criterion,
+                                max_len,
+                                )
+        
+        from sklearn.preprocessing import LabelEncoder
+        label_names = np.array(group_names)
+        label_encoder = LabelEncoder()
+        y = label_encoder.fit_transform(label_names)                
+        subjects = np.array(splitting_names)
+    elif dataset_name == 'gazebasevr':
+        label_grouping = config.GAZEBASEVR_LABEL_GROUPING
+        instance_grouping = config.GAZEBASEVR_INSTANCE_GROUPING
+        splitting_criterion = config.GAZEBASEVR_SPLITTING_CRITERION
+        max_len = config.GAZEBASEVR_MAXLEN
+        
+        dataset = pm.Dataset("GazeBaseVR", path='data/GazeBaseVR')
+        try:
+            dataset.load(subset = {#'subject_id':[1,2,3,4,5,6,7,8,9,10],
+                                           'task_name': ['1_VRG', '4_TEX', '2_PUR', '3_VID', '5_RAN'],
+                                           'round_id': [1],
+                                           'session_id': [1],
+                                          })
+        except:
+            dataset.download()
+            dataset.load(subset = {#'subject_id':[1,2,3,4,5,6,7,8,9,10],
+                                           'task_name': ['1_VRG', '4_TEX', '2_PUR', '3_VID', '5_RAN'],
+                                           'round_id': [1],
+                                           'session_id': [1],
+                                          })
+
+        # replace timesteps -> change to int (FIX for IDT algorithm)
+        for i in tqdm(np.arange(len(dataset.gaze))):
+            dataset.gaze[i].frame = dataset.gaze[i].frame.with_columns(pl.Series(name="time", values=[j for j in range(dataset.gaze[i].frame.shape[0])]))
+
+        
+        sampling_rate = dataset.definition.experiment.sampling_rate
+        # transform positional data to velocity data
+        dataset.pos2vel()
+        
+        # detect events
+        dataset.detect(detection_method, **detection_params)
+        
+        # create features
+        feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
+                                sampling_rate,
+                                blink_threshold,
+                                blink_window_size,
+                                blink_min_duration,
+                                blink_velocity_threshold,
+                                feature_aggregations,
+                                detection_method,
+                                label_grouping,
+                                instance_grouping,
+                                splitting_criterion,
+                                max_len,
                                 )
         
         from sklearn.preprocessing import LabelEncoder
@@ -323,9 +397,11 @@ def evaluate_model(args):
         y = label_encoder.fit_transform(label_names)                
         subjects = np.array(splitting_names)
     elif args.dataset == 'copco':
+        label_path = config.COPCO_LABEL_PATH
         label_grouping = config.COPCO_LABEL_GROUPING
         instance_grouping = config.COPCO_INSTANCE_GROUPING
         splitting_criterion = config.COPCO_SPLITTING_CRITERION
+        max_len = config.COPCO_MAXLEN
         
         # load labels
         label_df = pl.read_csv(config.COPCO_LABEL_PATH)
@@ -339,18 +415,169 @@ def evaluate_model(args):
                     .then(1)
                 # L2
                 .otherwise(2)
-            .alias('')
+            .alias('classes')
         )
         label_df = label_df.rename(
-            {'subj': 'subject_id'},
-            {'acc': 'comprehension_accuracy'},
-            {'subj_acc': 'score_reading_comprehension_test'},
+                    {'subj': 'subject_id',
+                    'comprehension_accuracy': 'acc_numeric',                  # text comprehension
+                    'score_reading_comprehension_test': 'subj_acc_numeric',   #general reading comprehension
+                    }
+                )
+
+        # Text Comprehension
+        acc_mean = np.mean(list(label_df['acc_numeric']))
+        label_df = label_df.with_columns(
+            pl.when(
+                # L1 without dyslexia
+                (pl.col('acc_numeric') >= acc_mean))
+                .then(1)        
+                .otherwise(0)
+            .alias('acc')
         )
+
+        # General Reading Comprehension
+        subj_acc_mean = np.nanmean(np.array(list(label_df['subj_acc_numeric']), dtype=np.float32))
+        label_df = label_df.with_columns(
+            pl.when(
+                # L1 without dyslexia
+                (pl.col('subj_acc_numeric') >= subj_acc_mean))        
+                .then(1)
+                .when((pl.col('subj_acc_numeric').is_null()))
+                    .then(-1)
+                .otherwise(0)
+            .alias('subj_acc')
+        )
+
+        use_participants_df   = label_df.filter(pl.col(label_column) != -1)
+        use_participants = list(use_participants_df['subject_id'])
+        use_label = list(use_participants_df[label_column])
+        subject_label_dict = dict()
+        for i in range(len(use_participants)):
+            part = use_participants[i]
+            lab = use_label[i]
+            subject_label_dict[int(part.replace('P',''))] = lab
+        
+        
+        dataset = pm.Dataset("CopCo", path='data/CopCo')
+
+        # BEGIN hack
+        try:
+            dataset.load(preprocessed=False,
+                    )
+        except:
+            pass
+
+        dataset.definition.time_column = 'time'
+        dataset.definition.trial_columns = ['subject_id','speech_id','paragraph_id','trial_id']
+        dataset.definition.time_unit = 'ms'
+        dataset.definition.pixel_columns = ['x_right', 'y_right']
+
+        import glob
+        csv_dir = '/mnt/mlshare/prasse/aeye_git/eye-movement-preprocessing/data/CopCo/csvs/'
+        csv_files = glob.glob(csv_dir + '*.csv')
+        subject_id = []
+        filepath = []
+        for file in csv_files:
+            subject_id.append(file.split('/')[-1].replace('P','').replace('.csv',''))
+            filepath.append(file)
+        out_df = pl.DataFrame({'subject_id':subject_id,
+                               'filepath':filepath
+                              }
+                )
+        dataset.fileinfo['gaze'] = out_df
+
+        dataset.definition.custom_read_kwargs['gaze'] = {
+                        'schema_overrides': {
+                            'time': pl.Int64,
+                            'x_right': pl.Float32,
+                            'y_right': pl.Float32,
+                            'pupil_right': pl.Float32,
+                        },
+                        'separator': ',',
+                    }
+
+        dataset.definition.filename_format_schema_overrides['gaze'] = {
+                        'subject_id': int,
+                        'speech_id': int,
+                        'paragraph_id': int,
+                        'trial_id': int,
+                    }        
+
+        try:
+            dataset.load_gaze_files(preprocessed=False,
+                    )
+        except:
+            dataset.download()
+            dataset.load_gaze_files(preprocessed=False,
+                    )
+
+        sampling_rate = dataset.definition.experiment.sampling_rate
+        deleted_instances = 0
+        instance_count = 0
+        # Preprocessing
+        # delete screens with errors (time difference not constant)
+        for i in tqdm(np.arange(len(dataset.gaze))):
+            cur_gaze_df = dataset.gaze[i].frame.with_row_index()
+            delete_ids = []
+            for name, data in cur_gaze_df.group_by(instance_grouping):
+                timesteps_diff = np.diff(list(data['time']))
+                number_steps = len(np.unique(timesteps_diff))
+                if number_steps > 1:
+                    delete_ids += list(data['index'])
+                    deleted_instances+= 1
+                instance_count += 1
+            dataset.gaze[i].frame = dataset.gaze[i].frame.with_row_index().filter(~pl.col("index").is_in(delete_ids))            
+        print(' === Evaluating model ===')
+        print('    deleted instances: ' + str(deleted_instances) +\
+                ' (' + str(np.round(deleted_instances/instance_count*100.,decimals=2)) + '%)')
+        # END hack
+        
+        # transform pixel coordinates to degrees of visual angle
+        dataset.pix2deg()
+
+        # transform positional data to velocity data
+        dataset.pos2vel()
+        
+        # detect events
+        dataset.detect(detection_method, **detection_params)
+        
+        # create features
+        feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
+                                sampling_rate,
+                                blink_threshold,
+                                blink_window_size,
+                                blink_min_duration,
+                                blink_velocity_threshold,
+                                feature_aggregations,
+                                detection_method,
+                                label_grouping,
+                                instance_grouping,
+                                splitting_criterion,
+                                max_len,
+                                )
+        
+        
+        # create label
+        y = []
+        subjects = []
+        use_ids = []
+        for i in range(feature_matrix.shape[0]):
+            c_sub = int(splitting_names[i])
+            if c_sub in subject_label_dict:
+                y.append(subject_label_dict[c_sub])
+                subjects.append(int(c_sub))
+                use_ids.append(i)
+        y = np.array(y)
+        subjects = np.array(subjects)
+        feature_matrix = feature_matrix[use_ids]
+        group_names = np.array(group_names)[use_ids]
+        splitting_names = np.array(splitting_names)[use_ids]
     elif args.dataset == 'potec':
         label_grouping = config.POTEC_LABEL_GROUPING
         instance_grouping = config.POTEC_INSTANCE_GROUPING
         splitting_criterion = config.POTEC_SPLITTING_CRITERION        
         label_path = config.POTEC_LABEL_PATH
+        max_len = config.POTEC_MAXLEN
 
         # load labels
         label_df = pl.read_csv(label_path, separator='\t')
@@ -376,6 +603,7 @@ def evaluate_model(args):
                 }
             )
 
+        sampling_rate = dataset.definition.experiment.sampling_rate
         deleted_instances = 0
         instance_count = 0
         # Preprocessing
@@ -418,6 +646,7 @@ def evaluate_model(args):
                                 label_grouping,
                                 instance_grouping,
                                 splitting_criterion,
+                                max_len,
                                 )
         # create label
         if label_column == 'familarity':

@@ -4,6 +4,7 @@ SBSAT_LABEL_GROUPING = ['book_name', 'subject_id']
 SBSAT_INSTANCE_GROUPING = ['book_name', 'subject_id', 'screen_id']
 SBSAT_SPLITTING_CRITERION = 'subject_id'
 SBSAT_LABELS = ['acc', 'difficulty', 'subj_acc', 'native']
+SBSAT_MAXLEN = None
 
 
 # GAZEBASE DATA
@@ -11,12 +12,22 @@ GAZEBASE_LABEL_GROUPING = ['task_name']
 GAZEBASE_INSTANCE_GROUPING = ['round_id', 'subject_id','session_id','task_name']
 GAZEBASE_SPLITTING_CRITERION = 'subject_id'
 GAZBASE_LABELS = ['task_name']
+GAZEBASE_MAXLEN = 10000
+
+# GAZEBASEVR DATA
+GAZEBASEVR_LABEL_GROUPING = ['task_name']
+GAZEBASEVR_INSTANCE_GROUPING = ['round_id', 'subject_id','session_id','task_name']
+GAZEBASEVR_SPLITTING_CRITERION = 'subject_id'
+GAZBASEVR_LABELS = ['task_name']
+GAZEBASEVR_MAXLEN = 2500
 
 # COPCO
 COPCO_LABEL_PATH = 'data/participant_stats.csv'
-COPCO_LABEL_GROUPING = ['book_name', 'subject_id']
-COPCO_INSTANCE_GROUPING = ['book_name', 'subject_id', 'screen_id']
+COPCO_LABEL_GROUPING = ['subject_id']
+COPCO_INSTANCE_GROUPING = ['subject_id', 'speech_id', 'paragraph_id']
 COPCO_SPLITTING_CRITERION = 'subject_id'
+COPCO_LABELS = ['acc', 'subj_acc', 'classes', 'l1vsl2', 'dyslexia']
+COPCO_MAXLEN = None
 
 # POTEC
 POTEC_LABEL_PATH = 'data/potec_label.tsv'
@@ -24,6 +35,7 @@ POTEC_LABEL_GROUPING = ['subject_id', 'text_id']
 POTEC_INSTANCE_GROUPING = ['subject_id', 'text_id']
 POTEC_SPLITTING_CRITERION = 'subject_id'
 POTEC_LABELS = ['familarity'] # familarity: label == 1, if text from own field
+POTEC_MAXLEN = None
 
 # we allow 3 event_types: 'Fixation', 'Saccade', or 'None'
 event_name_dict = {

@@ -62,6 +62,10 @@ def get_datset_labels(dataset):
         labels = config.SBSAT_LABELS
     elif dataset == 'gazebase':
         labels = config.GAZBASE_LABELS
+    elif dataset == 'gazebasevr':
+        labels = config.GAZBASEVR_LABELS
     elif dataset == 'potec':
         labels = config.POTEC_LABELS
+    elif dataset == 'copco':
+        labels = config.COPCO_LABELS
     return labels
