@@ -101,8 +101,8 @@ def get_feature_matrix(dataset,
                 cur_onset_id = cur_gaze_df.filter(pl.col('time') == cur_onset_time)['index'][0]
                 cur_offset_id = cur_gaze_df.filter(pl.col('time') == cur_offset_time)['index'][0]
             else:
-                cur_onset_id = cur_gaze_df.with_row_index().filter(pl.col('time') == cur_onset_time)['index'][0]
-                cur_offset_id = cur_gaze_df.with_row_index().filter(pl.col('time') == cur_offset_time)['index'][0]
+                cur_onset_id = cur_gaze_df.with_row_index().filter(pl.col('time').cast(int) == cur_onset_time)['index'][0]
+                cur_offset_id = cur_gaze_df.with_row_index().filter(pl.col('time').cast(int)  == cur_offset_time)['index'][0]
             event_type[cur_onset_id:cur_offset_id] = event_name_code_dict[event_name_dict[cur_event_df[event_id]['name'][0]]]
 
         if 'postion_x' in cur_gaze_df.columns:
@@ -668,6 +668,51 @@ def evaluate_model(args):
         else:
             raise RuntimeError('Error: label not implemented')
         subjects = splitting_names
+    elif args.dataset == 'gazegraph':
+        label_grouping = config.GAZEGRAPH_LABEL_GROUPING
+        instance_grouping = config.GAZEGRAPH_INSTANCE_GROUPING
+        splitting_criterion = config.GAZEGRAPH_SPLITTING_CRITERION
+        max_len = None
+        
+        dataset = pm.Dataset("GazeGraph", path='data/GazeGraph')
+        try:
+            dataset.load(
+                #subset = {'subject_id':[1,2,3,4,5,6,7,8,9,10]},
+                                  )
+        except:
+            dataset.download()
+            dataset.load(
+                # subset = {#'subject_id':[1,2,3,4]},
+                                  )
+
+        sampling_rate = dataset.definition.experiment.sampling_rate
+        # transform positional data to velocity data
+        dataset.pix2deg()
+        dataset.pos2vel()
+        
+        # detect events
+        dataset.detect(detection_method, **detection_params)
+        
+        # create features
+        feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
+                                sampling_rate,
+                                blink_threshold,
+                                blink_window_size,
+                                blink_min_duration,
+                                blink_velocity_threshold,
+                                feature_aggregations,
+                                detection_method,
+                                label_grouping,
+                                instance_grouping,
+                                splitting_criterion,
+                                max_len,
+                                )
+        
+        from sklearn.preprocessing import LabelEncoder
+        label_names = np.array(group_names)
+        label_encoder = LabelEncoder()
+        y = label_encoder.fit_transform(label_names)                
+        subjects = np.array(splitting_names)
     else:
         raise RuntimeError('Error: not implemented')
     
