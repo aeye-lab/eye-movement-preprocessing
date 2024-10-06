@@ -74,6 +74,8 @@ def get_datset_labels(dataset):
         labels = config.HBN_LABELS
     elif dataset == 'gazeonfaces':
         labels = config.GAZEONFACES_LABELS
+    elif dataset == 'gazegraph':
+        labels = config.GAZEGRAPH_LABELS
     else:
         raise NotImplementedError()
     return labels

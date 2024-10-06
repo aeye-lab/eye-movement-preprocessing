@@ -784,6 +784,57 @@ def evaluate_model(args):
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(label_names)
         subjects = np.array(splitting_names)
+    elif args.dataset == 'gazegraph':
+        label_grouping = config.GAZEGRAPH_LABEL_GROUPING
+        instance_grouping = config.GAZEGRAPH_INSTANCE_GROUPING
+        splitting_criterion = config.GAZEGRAPH_SPLITTING_CRITERION
+        max_len = None
+
+        dataset = pm.Dataset("GazeGraph", path='data/GazeGraph')
+        try:
+            dataset.load(
+#subset = {'subject_id':[1,2,3,4,5,6,7,8,9,10]},
+            )
+        except:
+            dataset.download()
+            dataset.load(
+# subset = {#'subject_id':[1,2,3,4]},
+            )
+
+        sampling_rate = dataset.definition.experiment.sampling_rate
+# transform positional data to velocity data
+        dataset.pix2deg()
+        dataset.pos2vel()
+
+# detect events
+        try:
+            dataset.detect(detection_method, **detection_params)
+        except:
+            for gaze_df_idx in range(len(dataset.gaze)):
+                dataset.gaze[gaze_df_idx].frame = dataset.gaze[gaze_df_idx].frame.with_columns(
+                    pl.col('time').cast(pl.Int32),
+                )
+
+# create features
+        feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
+            sampling_rate,
+            blink_threshold,
+            blink_window_size,
+            blink_min_duration,
+            blink_velocity_threshold,
+            feature_aggregations,
+            detection_method,
+            label_grouping,
+            instance_grouping,
+            splitting_criterion,
+            max_len,
+        )
+
+        from sklearn.preprocessing import LabelEncoder
+        label_names = np.array(group_names)
+        label_encoder = LabelEncoder()
+        y = label_encoder.fit_transform(label_names)                
+        subjects = np.array(splitting_names)
     else:
         raise RuntimeError('Error: not implemented')
     

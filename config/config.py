@@ -52,6 +52,12 @@ GAZEONFACES_SPLITTING_CRITERION = 'sub_id'
 GAZEONFACES_LABELS = ['gender']
 GAZEONFACES_MAXLEN = 10000
 
+# GAZEGRAPH DATA
+GAZEGRAPH_LABEL_GROUPING = ['task']
+GAZEGRAPH_INSTANCE_GROUPING = ['subject_id', 'task']
+GAZEGRAPH_SPLITTING_CRITERION = 'subject_id'
+GAZEGRAPH_LABELS = ['task']
+
 # we allow 3 event_types: 'Fixation', 'Saccade', or 'None'
 event_name_dict = {
                     'fixation': 'Fixation',
