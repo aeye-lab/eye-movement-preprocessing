@@ -68,4 +68,12 @@ def get_datset_labels(dataset):
         labels = config.POTEC_LABELS
     elif dataset == 'copco':
         labels = config.COPCO_LABELS
+    elif dataset == 'copco':
+        labels = config.COPCO_LABELS
+    elif dataset == 'hbn':
+        labels = config.HBN_LABELS
+    elif dataset == 'gazeonfaces':
+        labels = config.GAZEONFACES_LABELS
+    else:
+        raise NotImplementedError()
     return labels

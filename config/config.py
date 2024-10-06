@@ -44,6 +44,14 @@ POTEC_SPLITTING_CRITERION = 'subject_id'
 POTEC_LABELS = ['familarity'] # familarity: label == 1, if text from own field
 POTEC_MAXLEN = None
 
+# GAZEONFACES DATA
+GAZEONFACES_LABEL_PATH = 'data/observer_info'
+GAZEONFACES_LABEL_GROUPING = ['sub_id']
+GAZEONFACES_INSTANCE_GROUPING = ["sub_id", "trial_id"]
+GAZEONFACES_SPLITTING_CRITERION = 'sub_id'
+GAZEONFACES_LABELS = ['gender']
+GAZEONFACES_MAXLEN = 10000
+
 # we allow 3 event_types: 'Fixation', 'Saccade', or 'None'
 event_name_dict = {
                     'fixation': 'Fixation',
