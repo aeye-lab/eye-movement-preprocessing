@@ -106,6 +106,10 @@ idt_detection_params = {
                         'minimum_duration': [10, 50, 100, 200],
                         'dispersion_threshold': [0.5, 1.0, 1.5],
                        }
+idt_detection_params_250 = {
+                        'minimum_duration': [8, 48, 100, 200],
+                        'dispersion_threshold': [0.5, 1.0, 1.5],
+                       }
 ivt_detection_params = {
                         'minimum_duration': [10, 50, 100, 200],
                         'velocity_threshold': [5., 10., 20., 30., 40.],

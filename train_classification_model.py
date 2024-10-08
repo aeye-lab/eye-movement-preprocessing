@@ -362,13 +362,15 @@ def evaluate_model(args):
                                            'round_id': [1],
                                            'session_id': [1],
                                           })
-
-        # replace timesteps -> change to int (FIX for IDT algorithm)
-        for i in tqdm(np.arange(len(dataset.gaze))):
-            dataset.gaze[i].frame = dataset.gaze[i].frame.with_columns(pl.Series(name="time", values=[j for j in range(dataset.gaze[i].frame.shape[0])]))
-
         
         sampling_rate = dataset.definition.experiment.sampling_rate
+        step_size =  np.int32(1000. / sampling_rate)
+        
+        # replace timesteps -> change to int (FIX for IDT algorithm)
+        for i in tqdm(np.arange(len(dataset.gaze))):
+            dataset.gaze[i].frame = dataset.gaze[i].frame.with_columns(pl.Series(name="time", values=[np.int32(j*step_size) for j in range(dataset.gaze[i].frame.shape[0])]))
+        
+        
         # transform positional data to velocity data
         dataset.pos2vel()
         

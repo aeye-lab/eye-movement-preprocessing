@@ -29,7 +29,7 @@ def load_json_file(source_filepath):
     return content
 
 
-def get_detection_params(detection_method):
+def get_detection_params(detection_method, sampling_rate=1000):
     out_strings = []
     if detection_method == 'ivt':
         params = config.ivt_detection_params
@@ -41,7 +41,10 @@ def get_detection_params(detection_method):
                             ' --velocity-threshold ' + str(velocity_threshold)
                 out_strings.append(out_str)
     elif detection_method == 'idt':
-        params = config.idt_detection_params
+        if sampling_rate == 250:
+            params = config.idt_detection_params_250
+        else:
+            params = config.idt_detection_params
         minimum_durations = params['minimum_duration']
         dispersion_thresholds = params['dispersion_threshold']
         for minimum_duration in minimum_durations:
