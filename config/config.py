@@ -89,7 +89,7 @@ blink_velocity_threshold=0.1
 
 # learning params
 param_grid={
-        'n_estimators': [500, 1000],
+        'n_estimators': [250, 500, 1000],
         'max_features': ['auto', 'sqrt', 'log2'],
         'max_depth': [32, 64, 128, None],
         'criterion': ['entropy'],
@@ -101,10 +101,10 @@ n_splits = 5
 
 
 microsaccades_detection_params = {
-                        'minimum_duration': [5, 10, 15, 20]
+                        'minimum_duration': [5, 10, 15, 20, 30, 50]
                         }
 idt_detection_params = {
-                        'minimum_duration': [10, 50, 100, 200],
+                        'minimum_duration': [5, 10, 20, 50, 80, 100, 150, 200],
                         'dispersion_threshold': [0.5, 1.0, 1.5],
                        }
 idt_detection_params_250 = {
@@ -120,6 +120,6 @@ idt_detection_params_120 = {
                         'dispersion_threshold': [0.5, 1.0, 1.5],
                        }
 ivt_detection_params = {
-                        'minimum_duration': [10, 50, 100, 200],
+                        'minimum_duration': [5, 10, 50, 100, 200],
                         'velocity_threshold': [5., 10., 20., 30., 40.],
                        }

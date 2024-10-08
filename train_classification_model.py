@@ -45,6 +45,10 @@ def get_argument_parser() -> argparse.Namespace:
         '--velocity-threshold', type=float,
         default=20.0,
     )
+    parser.add_argument(
+        '--flag-redo', type=int,
+        default=0,
+    )
     parser.add_argument('--detection-method', type=str, default='ivt')
     args = parser.parse_args()
     return args
@@ -160,7 +164,11 @@ def evaluate_model(args):
     save_dir = args.save_dir
     detection_method = args.detection_method    
     result_prefix = detection_method
-    #sampling_rate = args.sampling_rate    
+    flag_redo = args.flag_redo
+    if flag_redo == 1:
+        flag_redo = True
+    else:
+        flag_redo = False   
     
     # detection method params
     minimum_duration = args.minimum_duration
@@ -197,7 +205,14 @@ def evaluate_model(args):
     param_grid = config.param_grid
     grid_search_verbosity = config.grid_search_verbosity
     n_splits = config.n_splits
-        
+    
+    
+    df_save_name = save_dir + '/' + dataset_name + '_' + label_column + '_' + result_prefix +\
+                    '_' + detection_param_string + '.csv'
+    
+    if not flag_redo and os.path.exists(df_save_name):
+        print('Skip evaluation (already exists)')
+        return None
     
     if dataset_name == 'sbsat':
         label_grouping = config.SBSAT_LABEL_GROUPING
@@ -416,7 +431,7 @@ def evaluate_model(args):
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(label_names)                
         subjects = np.array(splitting_names)
-    elif args.dataset == 'copco':
+    elif dataset_name == 'copco':
         label_path = config.COPCO_LABEL_PATH
         label_grouping = config.COPCO_LABEL_GROUPING
         instance_grouping = config.COPCO_INSTANCE_GROUPING
@@ -599,7 +614,7 @@ def evaluate_model(args):
         feature_matrix = feature_matrix[use_ids]
         group_names = np.array(group_names)[use_ids]
         splitting_names = np.array(splitting_names)[use_ids]
-    elif args.dataset == 'potec':
+    elif dataset_name == 'potec':
         label_grouping = config.POTEC_LABEL_GROUPING
         instance_grouping = config.POTEC_INSTANCE_GROUPING
         splitting_criterion = config.POTEC_SPLITTING_CRITERION        
@@ -784,7 +799,7 @@ def evaluate_model(args):
         max_len = config.GAZEONFACES_MAXLEN
         label_path = config.GAZEONFACES_LABEL_PATH
 
-# load labels
+        # load labels
         label_df = pl.read_csv(label_path)
 
         dataset = pm.Dataset("GazeOnFaces", path='data/GazeOnFaces')
@@ -805,11 +820,11 @@ def evaluate_model(args):
                 dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
         
         sampling_rate = dataset.definition.experiment.sampling_rate
-# transform positional data to velocity data
+        # transform positional data to velocity data
         dataset.pix2deg()
         dataset.pos2vel()
 
-# detect events
+        # detect events
         try:
             dataset.detect(detection_method, **detection_params)
         except TypeError:
@@ -838,7 +853,7 @@ def evaluate_model(args):
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(label_names)
         subjects = np.array(splitting_names)
-    elif args.dataset == 'gazegraph':
+    elif dataset_name == 'gazegraph':
         label_grouping = config.GAZEGRAPH_LABEL_GROUPING
         instance_grouping = config.GAZEGRAPH_INSTANCE_GROUPING
         splitting_criterion = config.GAZEGRAPH_SPLITTING_CRITERION
@@ -945,8 +960,7 @@ def evaluate_model(args):
     else:
         res_df = pl.DataFrame({'fold':np.arange(len(accs)),
                       'acc': accs})
-    res_df.write_csv(save_dir + '/' + dataset_name + '_' + label_column + '_' + result_prefix +\
-                    '_' + detection_param_string + '.csv')
+    res_df.write_csv(df_save_name)
     
     
     
