@@ -6,6 +6,7 @@ SBSAT_SPLITTING_CRITERION = 'subject_id'
 SBSAT_LABELS = ['acc', 'difficulty', 'subj_acc', 'native']
 SBSAT_MAXLEN = None
 
+# HBN DATA
 HBN_LABEL_PATH = 'data/sub_sel_classif.csv'
 HBN_LABEL_GROUPING = ['subject_id']
 HBN_INSTANCE_GROUPING = ['subject_id', 'video_id']
@@ -108,6 +109,14 @@ idt_detection_params = {
                        }
 idt_detection_params_250 = {
                         'minimum_duration': [8, 48, 100, 200],
+                        'dispersion_threshold': [0.5, 1.0, 1.5],
+                       }
+idt_detection_params_60 = {
+                        'minimum_duration': [32, 48, 96, 192],
+                        'dispersion_threshold': [0.5, 1.0, 1.5],
+                       }
+idt_detection_params_120 = {
+                        'minimum_duration': [16, 48, 96, 200],
                         'dispersion_threshold': [0.5, 1.0, 1.5],
                        }
 ivt_detection_params = {

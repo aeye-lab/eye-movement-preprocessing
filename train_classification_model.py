@@ -222,7 +222,13 @@ def evaluate_model(args):
             dataset.load(
                 #subset={'subject_id':[1,2,3,4,5,6,7,8,9,10]}
             )
-
+        
+        if max_len is not None:
+            print('### Cut Sequences ###')
+            # cut sequences to max_len
+            for i in tqdm(np.arange(len(dataset.gaze))):
+                dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
+        
         sampling_rate = dataset.definition.experiment.sampling_rate
         deleted_instances = 0
         instance_count = 0
@@ -315,6 +321,12 @@ def evaluate_model(args):
                                    'session_id': [1],
                                   })
 
+        if max_len is not None:
+            print('### Cut Sequences ###')
+            # cut sequences to max_len
+            for i in tqdm(np.arange(len(dataset.gaze))):
+                dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
+        
         sampling_rate = dataset.definition.experiment.sampling_rate
         # transform positional data to velocity data
         dataset.pos2vel()
@@ -363,19 +375,26 @@ def evaluate_model(args):
                                            'session_id': [1],
                                           })
         
+        if max_len is not None:
+            print('### Cut Sequences ###')
+            # cut sequences to max_len
+            for i in tqdm(np.arange(len(dataset.gaze))):
+                dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
+                
         sampling_rate = dataset.definition.experiment.sampling_rate
-        step_size =  np.int32(1000. / sampling_rate)
-        
-        # replace timesteps -> change to int (FIX for IDT algorithm)
-        for i in tqdm(np.arange(len(dataset.gaze))):
-            dataset.gaze[i].frame = dataset.gaze[i].frame.with_columns(pl.Series(name="time", values=[np.int32(j*step_size) for j in range(dataset.gaze[i].frame.shape[0])]))
-        
         
         # transform positional data to velocity data
         dataset.pos2vel()
         
         # detect events
-        dataset.detect(detection_method, **detection_params)
+        try:
+            dataset.detect(detection_method, **detection_params)
+        except TypeError:
+            for i in range(len(dataset.gaze)):
+                # XXX mimic 250 Hz
+                dataset.gaze[i].frame = dataset.gaze[i].frame.with_columns(pl.Series(name="time", values=[j*int(1000/sampling_rate) for j in range(dataset.gaze[i].frame.shape[0])]))
+            dataset.detect(detection_method, **detection_params)
+        
         
         # create features
         feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
@@ -511,7 +530,14 @@ def evaluate_model(args):
             dataset.download()
             dataset.load_gaze_files(preprocessed=False,
                     )
-
+        
+        if max_len is not None:
+            print('### Cut Sequences ###')
+            # cut sequences to max_len
+            for i in tqdm(np.arange(len(dataset.gaze))):
+                dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
+        
+        
         sampling_rate = dataset.definition.experiment.sampling_rate
         deleted_instances = 0
         instance_count = 0
@@ -603,7 +629,14 @@ def evaluate_model(args):
                 subset={'subject_id':reader_ids
                 }
             )
-
+        
+        
+        if max_len is not None:
+            print('### Cut Sequences ###')
+            # cut sequences to max_len
+            for i in tqdm(np.arange(len(dataset.gaze))):
+                dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
+        
         sampling_rate = dataset.definition.experiment.sampling_rate
         deleted_instances = 0
         instance_count = 0
@@ -695,7 +728,14 @@ def evaluate_model(args):
                 # subset={'subject_id': ['NDARAJ807UYR', 'NDARMF939FNX', 'NDARZZ740MLM', 'NDARZZ740ML']},
                 subset={'subject_id': label_df['Patient_ID'].to_list()}
             )
-
+        
+        
+        if max_len is not None:
+            print('### Cut Sequences ###')
+            # cut sequences to max_len
+            for i in tqdm(np.arange(len(dataset.gaze))):
+                dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
+        
         sampling_rate = dataset.definition.experiment.sampling_rate
         print(' === Evaluating model ===')
         # transform pixel coordinates to degrees of visual angle
@@ -757,7 +797,13 @@ def evaluate_model(args):
             dataset.load(
                 # subset = {'sub_id':[1,2,3,4]},
             )
-
+        
+        if max_len is not None:
+            print('### Cut Sequences ###')
+            # cut sequences to max_len
+            for i in tqdm(np.arange(len(dataset.gaze))):
+                dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
+        
         sampling_rate = dataset.definition.experiment.sampling_rate
 # transform positional data to velocity data
         dataset.pix2deg()
@@ -801,20 +847,26 @@ def evaluate_model(args):
         dataset = pm.Dataset("GazeGraph", path='data/GazeGraph')
         try:
             dataset.load(
-#subset = {'subject_id':[1,2,3,4,5,6,7,8,9,10]},
+                        #subset = {'subject_id':[1,2,3,4,5,6,7,8,9,10]},
             )
         except:
             dataset.download()
             dataset.load(
-# subset = {#'subject_id':[1,2,3,4]},
+                        # subset = {#'subject_id':[1,2,3,4]},
             )
-
+            
+        if max_len is not None:
+            print('### Cut Sequences ###')
+            # cut sequences to max_len
+            for i in tqdm(np.arange(len(dataset.gaze))):
+                dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
+        
         sampling_rate = dataset.definition.experiment.sampling_rate
-# transform positional data to velocity data
+        # transform positional data to velocity data
         dataset.pix2deg()
         dataset.pos2vel()
 
-# detect events
+        # detect events
         try:
             dataset.detect(detection_method, **detection_params)
         except:
