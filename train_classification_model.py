@@ -680,6 +680,7 @@ def evaluate_model(args):
         print(' === Loading data ===')
         
         dataset = pm.Dataset("HBN", path='data/HBN')
+        sampling_rate = dataset.definition.experiment.sampling_rate  # 120 Hz
 
         try:
             dataset.load(
@@ -704,11 +705,10 @@ def evaluate_model(args):
         # detect events
         try:
             dataset.detect(detection_method, **detection_params)
-        except:
-            for gaze_df_idx in range(len(dataset.gaze)):
-                dataset.gaze[gaze_df_idx].frame = dataset.gaze[gaze_df_idx].frame.with_columns(
-                    pl.col('time').cast(pl.Int32),
-                )
+        except TypeError:
+            for i in range(len(dataset.gaze)):
+                # XXX mimic 120 Hz
+                dataset.gaze[i].frame = dataset.gaze[i].frame.with_columns(pl.Series(name="time", values=[j*int(1000/sampling_rate) for j in range(dataset.gaze[i].frame.shape[0])]))
             dataset.detect(detection_method, **detection_params)
         
         # create features
@@ -762,7 +762,13 @@ def evaluate_model(args):
         dataset.pos2vel()
 
 # detect events
-        dataset.detect(detection_method, **detection_params)
+        try:
+            dataset.detect(detection_method, **detection_params)
+        except TypeError:
+            for i in range(len(dataset.gaze)):
+                # XXX mimic 60 Hz
+                dataset.gaze[i].frame = dataset.gaze[i].frame.with_columns(pl.Series(name="time", values=[j*int(1000/sampling_rate)for j in range(dataset.gaze[i].frame.shape[0])]))
+            dataset.detect(detection_method, **detection_params)
 
 # create features
         feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
