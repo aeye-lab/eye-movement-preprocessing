@@ -34,7 +34,7 @@ COPCO_LABEL_PATH = 'data/participant_stats.csv'
 COPCO_LABEL_GROUPING = ['subject_id']
 COPCO_INSTANCE_GROUPING = ['subject_id', 'speech_id', 'paragraph_id']
 COPCO_SPLITTING_CRITERION = 'subject_id'
-COPCO_LABELS = ['acc', 'subj_acc', 'classes', 'l1vsl2', 'dyslexia']
+COPCO_LABELS = ['acc', 'subj_acc']#, 'classes', 'l1vsl2', 'dyslexia']
 COPCO_MAXLEN = None
 
 # POTEC
@@ -101,11 +101,11 @@ n_splits = 5
 
 
 microsaccades_detection_params = {
-                        'minimum_duration': [5, 10, 15, 20, 30, 50]
+                        'minimum_duration': [5, 10, 15, 20, 30, 50, 60, 70, 80]
                         }
 idt_detection_params = {
-                        'minimum_duration': [5, 10, 20, 50, 80, 100, 150, 200],
-                        'dispersion_threshold': [0.5, 1.0, 1.5],
+                        'minimum_duration': [5, 10, 20, 50, 80, 100, 150, 200, 250, 300],
+                        'dispersion_threshold': [0.5, 1.0, 1.5, 2.0, 2.5],
                        }
 idt_detection_params_250 = {
                         'minimum_duration': [8, 48, 100, 200],
@@ -119,7 +119,11 @@ idt_detection_params_120 = {
                         'minimum_duration': [16, 48, 96, 200],
                         'dispersion_threshold': [0.5, 1.0, 1.5],
                        }
+idt_detection_params_30 = {
+                        'minimum_duration': [66, 99, 198],
+                        'dispersion_threshold': [0.5, 1.0, 1.5],
+                       }
 ivt_detection_params = {
-                        'minimum_duration': [5, 10, 50, 100, 200],
-                        'velocity_threshold': [5., 10., 20., 30., 40.],
+                        'minimum_duration': [5, 10, 50, 100, 200, 250, 300],
+                        'velocity_threshold': [2.5, 5., 10., 20., 30., 40.],
                        }

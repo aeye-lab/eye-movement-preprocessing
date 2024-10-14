@@ -22,9 +22,11 @@ def evaluate(args):
     if dataset == 'gazebasevr':
         detection_params = helpers.get_detection_params(detection_method, sampling_rate=250)
     elif dataset == 'hbn':
-        detection_params = helpers.get_detection_params(detection_method, sampling_rate=250)
-    elif dataset == 'gazeonfaces':
         detection_params = helpers.get_detection_params(detection_method, sampling_rate=120)
+    elif dataset == 'gazeonfaces':
+        detection_params = helpers.get_detection_params(detection_method, sampling_rate=60)
+    elif dataset == 'gazegraph':
+        detection_params = helpers.get_detection_params(detection_method, sampling_rate=30)    
     else:
         detection_params = helpers.get_detection_params(detection_method)
     label_columns = helpers.get_datset_labels(dataset)

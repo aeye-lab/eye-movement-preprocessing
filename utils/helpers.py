@@ -47,6 +47,8 @@ def get_detection_params(detection_method, sampling_rate=1000):
             params = config.idt_detection_params_60
         elif sampling_rate == 120:
             params = config.idt_detection_params_120
+        elif sampling_rate == 30:
+            params = config.idt_detection_params_30
         else:
             params = config.idt_detection_params
         minimum_durations = params['minimum_duration']
