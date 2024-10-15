@@ -725,7 +725,8 @@ def evaluate_model(args):
         max_len = config.HBN_MAXLEN
         
         # load labels
-        label_df = pl.read_csv(label_path, separator='\t')
+        _label_df = pl.read_csv(label_path, separator='\t')
+        label_df = _label_df.filter(_label_df['video_Fractals'])
         
         print(' === Loading data ===')
         
@@ -735,15 +736,20 @@ def evaluate_model(args):
         try:
             dataset.load(
                 # subset={'subject_id': ['NDARAJ807UYR', 'NDARMF939FNX', 'NDARZZ740MLM', 'NDARZZ740ML']},
-                subset={'subject_id': label_df['Patient_ID'].to_list()}
+                subset={
+                    'subject_id': label_df['Patient_ID'].to_list(),
+                    'video_id': 'Fractals',
+                }
             )
         except:
             dataset.download()
             dataset.load(
                 # subset={'subject_id': ['NDARAJ807UYR', 'NDARMF939FNX', 'NDARZZ740MLM', 'NDARZZ740ML']},
-                subset={'subject_id': label_df['Patient_ID'].to_list()}
+                subset={
+                    'subject_id': label_df['Patient_ID'].to_list(),
+                    'video_id': 'Fractals',
+                }
             )
-        
         
         if max_len is not None:
             print('### Cut Sequences ###')
