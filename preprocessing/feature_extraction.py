@@ -1636,13 +1636,17 @@ def get_gaze_entropy_features(fixation_list,
 #    blink_min_duration: minimal blink duration in ms
 #    blink_velocity_threshold: velocity threshold for the detection of the beginning and ending of a blink
 #    feature_aggregations: list of aggregations performed on list of values
+#    use_eye_closure_features: flag indicating, if eye closure features should be used
+#    use_pupil_features: flag indicating, if pupil features should be used
 def compute_features(input_df,
                     sampling_rate,
                     blink_threshold,
                     blink_window_size,
                     blink_min_duration,
                     blink_velocity_threshold,
-                    feature_aggregations
+                    feature_aggregations,
+                    use_eye_closure_features=True,
+                    use_pupil_features=True,
                     ):
     if 'pixel_x' not in input_df.columns:
         x_pixel = np.zeros([input_df.shape[0],])
@@ -1684,10 +1688,17 @@ def compute_features(input_df,
     # get eye movement events (fixations, saccades)
     list_dicts, event_df = get_event_lists(input_df)
     
-    # add pupil features
-    features_pupils, feature_names_pupils = get_pupil_features(pupil,
-                                                               feature_prefix='pupil',
-                                                               feature_aggregations=feature_aggregations)
+    # get empty feature vector
+    combined_features = np.array([])
+    
+    if use_pupil_features:
+        # add pupil features
+        features_pupils, feature_names_pupils = get_pupil_features(pupil,
+                                                                   feature_prefix='pupil',
+                                                                   feature_aggregations=feature_aggregations)
+        combined_features = np.concatenate([combined_features, features_pupils])
+    else:
+        feature_names_pupils = []
 
 
     # add gaze entropy features
@@ -1695,6 +1706,7 @@ def compute_features(input_df,
                                          x_pixel=x_pixel,
                                          y_pixel=y_pixel,
                                          patch_size=64)
+    combined_features = np.concatenate([combined_features, features_gaze_entropy])
                                          
     # add count features
     # add blink count
@@ -1713,17 +1725,23 @@ def compute_features(input_df,
     count_feature_names.append('count_saccades')
             
     count_features = np.array(count_features)
+    combined_features = np.concatenate([combined_features, count_features])
     
     # features for eye closures
-    eye_closure_features, eye_closure_feature_names = compute_eye_closure_features(eye_closures, eye_blink,
-                                                                                   blink_threshold=blink_threshold,
-                                                                                   window_size=blink_window_size,
-                                                                                   flag_use_eye_state_label=True,
-                                                                                   min_duration=blink_min_duration,
-                                                                                   close_labels=[1],
-                                                                                   velocity_threshold=blink_velocity_threshold,
-                                                                                   feature_prefix='eye_closure',
-                                                                                   feature_aggregations=feature_aggregations)
+    if use_eye_closure_features:
+        eye_closure_features, eye_closure_feature_names = compute_eye_closure_features(eye_closures, eye_blink,
+                                                                                       blink_threshold=blink_threshold,
+                                                                                       window_size=blink_window_size,
+                                                                                       flag_use_eye_state_label=True,
+                                                                                       min_duration=blink_min_duration,
+                                                                                       close_labels=[1],
+                                                                                       velocity_threshold=blink_velocity_threshold,
+                                                                                       feature_prefix='eye_closure',
+                                                                                       feature_aggregations=feature_aggregations)
+        combined_features = np.concatenate([combined_features, eye_closure_features])
+    else:
+        eye_closure_feature_names = []
+        
     
     # saccadic features
     features_sacc, feature_names_sacc = compute_saccadic_features(list_dicts['saccades'],
@@ -1732,6 +1750,7 @@ def compute_features(input_df,
                                                                   x_vels=vel_x, y_vels=vel_y,
                                                                   feature_prefix='saccade',
                                                                   feature_aggregations=feature_aggregations)
+    combined_features = np.concatenate([combined_features, features_sacc])
     
     # Texas features for saccads
     texas_features, texas_feature_names = get_features_for_smoothed_saccades(list_dicts['saccades'],
@@ -1746,6 +1765,7 @@ def compute_features(input_df,
                                                                              sampling_rate=sampling_rate,
                                                                              feature_prefix='saccade',
                                                                              feature_aggregations=feature_aggregations)
+    combined_features = np.concatenate([combined_features, texas_features])
                                                                              
     # Texas features for fixations
     texas_features_fixations, texas_feature_names_fixations = get_features_for_smoothed_fixations(list_dicts['fixations'],
@@ -1760,20 +1780,23 @@ def compute_features(input_df,
                                                                              sampling_rate=sampling_rate,
                                                                              feature_prefix='fixation',
                                                                              feature_aggregations=feature_aggregations)
+    combined_features = np.concatenate([combined_features, texas_features_fixations])
 
+    '''
     combined_features = np.concatenate([features_pupils,
                                             features_gaze_entropy, count_features, 
                                             eye_closure_features, 
                                             features_sacc, texas_features,
                                             texas_features_fixations])
-
+    '''
+    
     combined_feature_names = list(feature_names_pupils) +\
                          list(feature_name_gaze_entropy) +\
                          list(count_feature_names) +\
                          list(eye_closure_feature_names) +\
                          list(feature_names_sacc) +\
                          list(texas_feature_names) +\
-                         list(texas_feature_names_fixations)                                                                             
+                         list(texas_feature_names_fixations)                                                                     
                                                                              
     return combined_features, combined_feature_names
     
