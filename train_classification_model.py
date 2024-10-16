@@ -68,6 +68,8 @@ def get_feature_matrix(dataset,
                     splitting_criterion,
                     max_len=None,
                     return_feature_names=False,
+                    use_eye_closure_features=False,
+                    use_pupil_features=False,
                     ):
                         
     event_name_dict = config.event_name_dict
@@ -140,6 +142,8 @@ def get_feature_matrix(dataset,
                             blink_min_duration,
                             blink_velocity_threshold,
                             feature_aggregations,
+                            use_eye_closure_features=use_eye_closure_features,
+                            use_pupil_features=use_pupil_features,
                             )
             if iter_counter == 0:
                 feature_matrix = np.zeros([num_add, len(combined_features)])
