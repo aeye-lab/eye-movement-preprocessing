@@ -90,7 +90,7 @@ blink_velocity_threshold=0.1
 # learning params
 param_grid={
         'n_estimators': [250, 500, 1000],
-        'max_features': ['auto', 'sqrt', 'log2'],
+        'max_features': [None, 'sqrt', 'log2'],
         'max_depth': [32, 64, 128, None],
         'criterion': ['entropy'],
         'n_jobs': [-1],

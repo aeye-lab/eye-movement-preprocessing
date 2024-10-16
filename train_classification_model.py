@@ -67,6 +67,7 @@ def get_feature_matrix(dataset,
                     instance_grouping,
                     splitting_criterion,
                     max_len=None,
+                    return_feature_names=False,
                     ):
                         
     event_name_dict = config.event_name_dict
@@ -155,7 +156,10 @@ def get_feature_matrix(dataset,
             iter_counter += 1
     feature_matrix = feature_matrix[0:iter_counter,:]
     feature_matrix[np.isnan(feature_matrix)] = 0.0
-    return feature_matrix, group_names, splitting_names
+    if return_feature_names:
+        return feature_matrix, group_names, splitting_names, combined_feature_names
+    else:
+        return feature_matrix, group_names, splitting_names
 
 
 def evaluate_model(args):
