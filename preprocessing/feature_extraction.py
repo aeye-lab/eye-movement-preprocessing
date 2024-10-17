@@ -1781,14 +1781,7 @@ def compute_features(input_df,
                                                                              feature_prefix='fixation',
                                                                              feature_aggregations=feature_aggregations)
     combined_features = np.concatenate([combined_features, texas_features_fixations])
-
-    '''
-    combined_features = np.concatenate([features_pupils,
-                                            features_gaze_entropy, count_features, 
-                                            eye_closure_features, 
-                                            features_sacc, texas_features,
-                                            texas_features_fixations])
-    '''
+    
     
     combined_feature_names = list(feature_names_pupils) +\
                          list(feature_name_gaze_entropy) +\

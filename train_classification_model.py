@@ -445,7 +445,7 @@ def evaluate_model(args):
         instance_grouping = config.COPCO_INSTANCE_GROUPING
         splitting_criterion = config.COPCO_SPLITTING_CRITERION
         max_len = config.COPCO_MAXLEN
-        
+
         # load labels
         label_df = pl.read_csv(config.COPCO_LABEL_PATH)
         label_df = label_df.with_columns(
@@ -491,6 +491,20 @@ def evaluate_model(args):
             .alias('subj_acc')
         )
 
+        # dyslexia binary
+        label_df = label_df.with_columns(
+            pl.when(
+                # dyslexia
+                (pl.col('dyslexia').is_in({'no'})))
+                    .then(0)
+                #  dyslexia
+                .when((pl.col('dyslexia').is_in({'yes'})))
+                    .then(1)
+                # no
+                .otherwise(-1)
+            .alias('dyslexia_bin')
+        )
+
         use_participants_df   = label_df.filter(pl.col(label_column) != -1)
         use_participants = list(use_participants_df['subject_id'])
         use_label = list(use_participants_df[label_column])
@@ -499,8 +513,8 @@ def evaluate_model(args):
             part = use_participants[i]
             lab = use_label[i]
             subject_label_dict[int(part.replace('P',''))] = lab
-        
-        
+
+
         dataset = pm.Dataset("CopCo", path='data/CopCo')
 
         # BEGIN hack
@@ -553,14 +567,14 @@ def evaluate_model(args):
             dataset.download()
             dataset.load_gaze_files(preprocessed=False,
                     )
-        
+
         if max_len is not None:
             print('### Cut Sequences ###')
             # cut sequences to max_len
             for i in tqdm(np.arange(len(dataset.gaze))):
                 dataset.gaze[i].frame = dataset.gaze[i].frame[0:max_len,:]
-        
-        
+
+
         sampling_rate = dataset.definition.experiment.sampling_rate
         deleted_instances = 0
         instance_count = 0
@@ -581,16 +595,16 @@ def evaluate_model(args):
         print('    deleted instances: ' + str(deleted_instances) +\
                 ' (' + str(np.round(deleted_instances/instance_count*100.,decimals=2)) + '%)')
         # END hack
-        
+
         # transform pixel coordinates to degrees of visual angle
         dataset.pix2deg()
 
         # transform positional data to velocity data
         dataset.pos2vel()
-        
+
         # detect events
         dataset.detect(detection_method, **detection_params)
-        
+
         # create features
         feature_matrix, group_names, splitting_names = get_feature_matrix(dataset,
                                 sampling_rate,
@@ -605,8 +619,8 @@ def evaluate_model(args):
                                 splitting_criterion,
                                 max_len,
                                 )
-        
-        
+
+
         # create label
         y = []
         subjects = []
