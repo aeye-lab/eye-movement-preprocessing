@@ -7,6 +7,7 @@ from tqdm import tqdm
 import warnings
 from preprocessing import curve_metrics as curve_metrics
 from preprocessing import smoothing as smoothing
+from joblib import Parallel, delayed
 
 
 ## get blink events for the list of eye closures
@@ -1792,8 +1793,54 @@ def compute_features(input_df,
                          list(texas_feature_names_fixations)                                                                     
                                                                              
     return combined_features, combined_feature_names
+
+# compute features for list
+#
+# params:
+#    input_df: polars dataframe containing the data
+#    sampling_rate: sampling rate
+#    blink_threshold: threshold what counts as blink
+#    blink_window_size: window of ms used to determine start and end of a blink
+#    blink_min_duration: minimal blink duration in ms
+#    blink_velocity_threshold: velocity threshold for the detection of the beginning and ending of a blink
+#    feature_aggregations: list of aggregations performed on list of values
+#    use_eye_closure_features: flag indicating, if eye closure features should be used
+#    use_pupil_features: flag indicating, if pupil features should be used
+def compute_features_from_list(input_df_list,
+                    sampling_rate,
+                    blink_threshold,
+                    blink_window_size,
+                    blink_min_duration,
+                    blink_velocity_threshold,
+                    feature_aggregations,
+                    use_eye_closure_features=True,
+                    use_pupil_features=True,
+                    ):
+    num_add = 1000
+    iter_counter = 0
+    for data in input_df_list:
+        combined_features, combined_feature_names = feature_extraction.compute_features(data,
+                        sampling_rate,
+                        blink_threshold,
+                        blink_window_size,
+                        blink_min_duration,
+                        blink_velocity_threshold,
+                        feature_aggregations,
+                        use_eye_closure_features=use_eye_closure_features,
+                        use_pupil_features=use_pupil_features,
+                        )
+        if iter_counter == 0:
+            feature_matrix = np.zeros([num_add, len(combined_features)])
+        while feature_matrix.shape[0] <= iter_counter:
+            feature_matrix = np.concatenate([feature_matrix, np.zeros([num_add, len(combined_features)])], axis=0)        
+        feature_matrix[iter_counter,:] = combined_features
+        iter_counter += 1
+    feature_matrix = feature_matrix[0:iter_counter,:]
+    feature_matrix[np.isnan(feature_matrix)] = 0.0
+    return feature_matrix, combined_feature_names
     
-    
+  
+
 '''
 
 # computes all features in parallel

@@ -34,7 +34,7 @@ COPCO_LABEL_PATH = 'data/participant_stats.csv'
 COPCO_LABEL_GROUPING = ['subject_id']
 COPCO_INSTANCE_GROUPING = ['subject_id', 'speech_id', 'paragraph_id']
 COPCO_SPLITTING_CRITERION = 'subject_id'
-COPCO_LABELS = ['dyslexia_bin', 'l1vsl2', 'acc', 'subj_acc']#, 'classes', 'l1vsl2', 'dyslexia']
+COPCO_LABELS = ['dyslexia_bin', 'acc', 'subj_acc']#, 'classes', 'l1vsl2', 'dyslexia']
 COPCO_MAXLEN = None
 
 # POTEC
@@ -95,7 +95,7 @@ param_grid={
         'criterion': ['entropy'],
         'n_jobs': [-1],
     }
-grid_search_verbosity = 10
+grid_search_verbosity = 0#10
 n_splits = 5
 
 
