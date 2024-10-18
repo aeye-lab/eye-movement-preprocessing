@@ -108,16 +108,16 @@ idt_detection_params = {
                         'dispersion_threshold': [0.5, 1.0, 1.5, 2.0, 2.5],
                        }
 idt_detection_params_250 = {
-                        'minimum_duration': [8, 48, 100, 200],
-                        'dispersion_threshold': [0.5, 1.0, 1.5],
+                        'minimum_duration': [8, 48, 80, 100, 200, 248, 296],
+                        'dispersion_threshold': [0.5, 1.0, 1.5, 2.0, 2.5],
                        }
 idt_detection_params_60 = {
                         'minimum_duration': [32, 48, 96, 192],
                         'dispersion_threshold': [0.5, 1.0, 1.5],
                        }
 idt_detection_params_120 = {
-                        'minimum_duration': [16, 48, 96, 200],
-                        'dispersion_threshold': [0.5, 1.0, 1.5],
+                        'minimum_duration': [16, 48, 96, 144, 200, 240, 288],
+                        'dispersion_threshold': [0.5, 1.0, 1.5, 2.0, 2.5],
                        }
 idt_detection_params_30 = {
                         'minimum_duration': [66, 99, 198],
