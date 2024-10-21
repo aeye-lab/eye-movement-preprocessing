@@ -28,7 +28,6 @@ def logical_xor(a, b):
 #   x_dva: degrees of visual angle (x-axis)
 #   sampling_rate: sampling rate 
 def curve_metrics(x_dva,y_dva, sampling_rate):
-
     metrics = dict()
     x=x_dva
     y=y_dva
@@ -125,15 +124,7 @@ def curve_metrics(x_dva,y_dva, sampling_rate):
     CurveArea=(np.sum(AreaVector)/xnorm[-1])*100;
     
     #fit the quadratic function and determine the direction of curvature
-    """
-    print('############# values: #############')
-    print(x)
-    print(xres)
-    print(y)
-    print(ynorm)
-    print()
-    print()
-    """
+    
     pol2 = np.polyfit(xres, ynorm, 2)
     polyval = np.poly1d(pol2)
     ypred2=polyval(xres)
@@ -142,6 +133,7 @@ def curve_metrics(x_dva,y_dva, sampling_rate):
     else:
         pol2[0] = pol2[0] * -1 #if quadratic coefficient is positive (downward curve), curvature is anti-clockwise
     
+    pol2 = [0]
     pol3 = np.polyfit(xres, ynorm, 3) #%derivative of cubic polynomial
     polyval3 = np.poly1d(pol3)
     ypred3=polyval3(xres)

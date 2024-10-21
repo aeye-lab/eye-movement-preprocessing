@@ -997,7 +997,10 @@ def get_features_for_smoothed_saccade(saccade_list,
 
     # saccade trajectory curvature features
     if len(pos_h) >= 4:
-        metrics = curve_metrics.curve_metrics(pos_h, pos_v, sampling_rate)
+        try:
+            metrics = curve_metrics.curve_metrics(pos_h, pos_v, sampling_rate)
+        except:
+            metrics = dict()
     else:
         metrics = dict()
     if 'direction' in metrics:
