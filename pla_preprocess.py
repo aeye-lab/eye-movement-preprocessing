@@ -1,15 +1,18 @@
 import argparse
 import os
+import polars as pl
 import pymovements as pm
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
 import utils.helpers as helpers
+import config.config as config
 
 
 def compute_reading_measures(
         fixations_df,
         aoi_df,
+        dataset_name,
 ) -> pd.DataFrame:
     """
     Computes reading measures from fixation sequences.
@@ -28,11 +31,21 @@ def compute_reading_measures(
         ignore_index=True,
     )
 
-    # XXX: fix off by one error (python vs human counting)
-    aoi_df['aoi'] = aoi_df['aoi'] - 1
-    # get the original words of the text and their word indices within the text
-    text_aois = aoi_df['aoi'].tolist()
-    text_strs = aoi_df['character'].tolist()
+    if dataset_name == 'PoTeC':
+        # XXX: fix off by one error (python vs human counting)
+        aoi_df['aoi'] = aoi_df['aoi'] - 1
+        # get the original words of the text and their word indices within the text
+        text_aois = aoi_df['aoi'].tolist()
+        text_strs = aoi_df['character'].tolist()
+    elif dataset_name == 'EMTeC':
+        aoi_df['aoi'] = aoi_df['word_index']
+        text_aois = aoi_df['aoi'].tolist()
+        text_strs = aoi_df['word'].tolist()
+        fixations_df['aoi'] = fixations_df['word_index']
+    elif dataset_name == 'CopCo':
+        text_aois = aoi_df['aoi'].tolist()
+        text_strs = aoi_df['word'].tolist()
+        fixations_df['aoi'] = fixations_df['word_index']
 
     # iterate over the words in that text
     word_dict = dict()
@@ -70,7 +83,10 @@ def compute_reading_measures(
 
         # if aoi is not a number (i.e., it is coded as a missing value using '.'), continue
         try:
-            aoi = int(fixation['aoi']) - 1
+            if dataset_name == 'PoTeC':
+                aoi = int(fixation['aoi']) - 1
+            elif dataset_name == 'EMTeC':
+                aoi = int(fixation['aoi'])
         except ValueError:
             continue
 
@@ -154,15 +170,30 @@ def _pla_preprocess(args):
     detection_method = args.detection_method
 
     dataset = pm.Dataset(dataset_name, path=f'data/{dataset_name}')
+    if dataset_name == 'CopCo':
+        label_path = config.COPCO_LABEL_PATH
+        label_grouping = config.COPCO_LABEL_GROUPING
+        instance_grouping = config.COPCO_INSTANCE_GROUPING
+        splitting_criterion = config.COPCO_SPLITTING_CRITERION
+        max_len = config.COPCO_MAXLEN
+
     try:
         dataset.load(
-            # subset={'subject_id': 5}
         )
     except:
         dataset.download()
         dataset.load(
-            # subset={'subject_id': 5}
         )
+
+    if dataset_name == 'EMTeC':
+        dataset.split_gaze_files('item_id')
+        dataset.apply('downsample', factor=2)
+        dataset.definition.experiment.sampling_rate = 1000
+    if dataset_name == 'CopCo':
+        dataset.split_gaze_files(['paragraph_id', 'speech_id'])
+        for gaze_idx in range(len(dataset.gaze)):
+            dataset.gaze[gaze_idx].frame = dataset.gaze[gaze_idx].frame.with_columns(time=np.arange(len(dataset.gaze[gaze_idx].frame)))
+
     dataset.pix2deg()
     dataset.pos2vel()
     minimum_duration = args.minimum_duration
@@ -185,6 +216,11 @@ def _pla_preprocess(args):
     dataset.compute_event_properties(("location", {'position_column':"pixel"}))
 
     for event_idx in tqdm(range(len(dataset.events))):
+        if dataset.events[event_idx].frame.is_empty():
+            print('+ dataframe empty -- skip')
+            continue
+        else:
+            print(' +++ load')
         if dataset_name == 'PoTeC':
             tmp_df = dataset.events[event_idx]
             if tmp_df.frame.is_empty():
@@ -201,7 +237,73 @@ def _pla_preprocess(args):
                 page_column='page',
                 custom_read_kwargs={'separator': '\t'},
             )
-        dataset.events[event_idx].map_to_aois(aoi_text_stimulus)
+            dataset.events[event_idx].map_to_aois(aoi_text_stimulus)
+        elif dataset_name == 'EMTeC':
+            tmp_df = dataset.events[event_idx]
+            if tmp_df.frame.is_empty():
+                print('+ skip due to empty DF')
+                continue
+            item_id = dataset.gaze[event_idx].frame['item_id'][0]
+            trial_id = dataset.gaze[event_idx].frame['TRIAL_ID'][0]
+            _trial_index_ = dataset.gaze[event_idx].frame['Trial_Index_'][0]
+            _model = dataset.gaze[event_idx].frame['model'][0]
+            _decoding_strategy = dataset.gaze[event_idx].frame['decoding_strategy'][0]
+            subject_id = dataset.events[event_idx]['subject_id'][0]
+            subject_id_str = str(subject_id)
+            if len(subject_id_str) < 2:
+                subject_id_str = subject_id_str.zfill(2)
+            aoi_text_stimulus = pm.stimulus.text.from_file(
+                f'./data/EMTeC/raw/subject_level_data/ET_{subject_id_str}/aoi/trialid{trial_id}_{item_id}_trialindex{_trial_index_}_coordinates.csv',
+                aoi_column='word',
+                start_x_column='x_left',
+                start_y_column='y_top',
+                end_x_column='x_right',
+                end_y_column='y_bottom',
+                custom_read_kwargs={'separator': '\t'},
+            )
+            dataset.events[event_idx].map_to_aois(aoi_text_stimulus)
+            dataset.events[event_idx].frame = dataset.events[event_idx].frame.with_columns(TRIAL_ID=trial_id)
+            dataset.events[event_idx].frame = dataset.events[event_idx].frame.with_columns(Trial_Index_=_trial_index_)
+            dataset.events[event_idx].frame = dataset.events[event_idx].frame.with_columns(model=pl.lit(_model))
+            dataset.events[event_idx].frame = dataset.events[event_idx].frame.with_columns(decoding_strategy=pl.lit(_decoding_strategy))
+        elif dataset_name == 'CopCo':
+            paragraph_id = dataset.gaze[event_idx].frame['paragraph_id'][0]
+            speech_id = dataset.gaze[event_idx].frame['speech_id'][0]
+            trial_id = dataset.gaze[event_idx].frame['trial_id'][0]
+            try:
+                aoi_text_stimulus = pm.stimulus.text.from_file(
+                    f'copco-processing/aois/renamed_aois_aug22/part1_IA_{speech_id}_{trial_id}_words.ias',
+                    aoi_column='word',
+                    start_x_column='x_start',
+                    start_y_column='y_start',
+                    end_x_column='x_end',
+                    end_y_column='y_end',
+                    custom_read_kwargs={
+                        'separator': '\t',
+                        'has_header': False,
+                        'new_columns': ['ia_form', 'aoi', 'x_start', 'y_start', 'x_end', 'y_end', 'word'],
+                    },
+                )
+            except:
+                try:
+                    aoi_text_stimulus = pm.stimulus.text.from_file(
+                        f'copco-processing/aois/renamed_aois_aug22/part2_IA_{speech_id}_{trial_id}_words.ias',
+                        aoi_column='word',
+                        start_x_column='x_start',
+                        start_y_column='y_start',
+                        end_x_column='x_end',
+                        end_y_column='y_end',
+                        custom_read_kwargs={
+                            'separator': '\t',
+                            'has_header': False,
+                            'new_columns': ['ia_form', 'aoi', 'x_start', 'y_start', 'x_end', 'y_end', 'word'],
+                        },
+                    )
+                except:
+                    print('aoi file not found')
+                    continue
+            dataset.events[event_idx].map_to_aois(aoi_text_stimulus)
+            dataset.events[event_idx].frame = dataset.events[event_idx].frame.with_columns(trial_id=pl.lit(trial_id))
 
     for _fix_file in dataset.events:
         if _fix_file.frame.is_empty():
@@ -209,9 +311,9 @@ def _pla_preprocess(args):
             continue
         fixations_df = _fix_file.frame.to_pandas()
 
-        text_id = fixations_df.iloc[0]['text_id']
-        subject_id = int(fixations_df.iloc[0]['subject_id'])
         if dataset_name == 'PoTeC':
+            text_id = fixations_df.iloc[0]['text_id']
+            subject_id = int(fixations_df.iloc[0]['subject_id'])
             aoi_df = pd.read_csv(f'./potec/stimuli/word_aoi_texts/word_aoi_{text_id}.tsv', delimiter='\t')
             save_basepath = os.path.join(
                 'reading_measures', dataset_name,
@@ -219,6 +321,55 @@ def _pla_preprocess(args):
                 detection_param_string,
             )
             rm_filename = f'{subject_id}-{text_id}-reading_measures.csv'
+        elif dataset_name == 'EMTeC':
+            trial_id = fixations_df['TRIAL_ID'][0]
+            _trial_index_ = fixations_df['Trial_Index_'][0]
+            item_id = fixations_df['item_id'][0]
+            model = fixations_df['model'][0]
+            decoding_strategy = fixations_df['decoding_strategy'][0]
+            subject_id = fixations_df['subject_id'][0]
+            subject_id_str = str(subject_id)
+            if len(subject_id_str) < 2:
+                subject_id_str = subject_id_str.zfill(2)
+            aoi_df = pd.read_csv(
+                f'./data/EMTeC/raw/subject_level_data/ET_{subject_id_str}/aoi/trialid{trial_id}_{item_id}_trialindex{_trial_index_}_coordinates.csv',
+                delimiter='\t',
+            )
+            save_basepath = os.path.join(
+                'reading_measures',
+                dataset_name,
+                str(subject_id_str),
+                detection_param_string,
+            )
+            rm_filename = f'{subject_id_str}-{item_id}-{model}-{decoding_strategy}-reading_measures.csv'
+        elif dataset_name == 'CopCo':
+            paragraph_id = fixations_df.iloc[0]['paragraph_id']
+            speech_id = fixations_df.iloc[0]['speech_id']
+            trial_id = fixations_df.iloc[0]['trial_id']
+            subject_id = int(fixations_df.iloc[0]['subject_id'])
+            try:
+                aoi_df = pd.read_csv(
+                    f'copco-processing/aois/renamed_aois_aug22/part1_IA_{speech_id}_{trial_id}_words.ias',
+                    names=['ia_form', 'aoi', 'x_start', 'y_start', 'x_end', 'y_end', 'word'],
+                    delimiter='\t',
+                )
+            except:
+                try:
+                    aoi_df = pd.read_csv(
+                        f'copco-processing/aois/renamed_aois_aug22/part2_IA_{speech_id}_{trial_id}_words.ias',
+                        names=['ia_form', 'aoi', 'x_start', 'y_start', 'x_end', 'y_end', 'word'],
+                        delimiter='\t',
+                    )
+                except:
+                    continue
+            save_basepath = os.path.join(
+                'reading_measures', dataset_name,
+                str(speech_id), str(paragraph_id),
+                detection_param_string,
+            )
+            rm_filename = f'{subject_id}-reading_measures.csv'
+        else:
+            raise NotImplementedError(f'{dataset_name=} not implemented')
         path_save_rm_file = os.path.join(save_basepath, rm_filename)
 
         if args.check_file_exists:
@@ -233,10 +384,17 @@ def _pla_preprocess(args):
         rm_df = compute_reading_measures(
             fixations_df=fixations_df,
             aoi_df=aoi_df,
+            dataset_name=dataset_name,
         )
 
-        rm_df['subject_id'] = subject_id
-        rm_df['text_id'] = text_id
+        if dataset_name == 'PoTeC':
+            rm_df['subject_id'] = subject_id
+            rm_df['text_id'] = text_id
+        elif dataset_name == 'EMTeC':
+            rm_df['subject_id'] = subject_id
+            rm_df['item_id'] = item_id
+            rm_df['model'] = model
+            rm_df['decoding_strategy'] = decoding_strategy
 
         rm_df.to_csv(path_save_rm_file, index=False)
 
