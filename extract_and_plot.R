@@ -20,7 +20,15 @@ library(brms)
 library(rstan)
 library(testit) # for assert
 library(viridis)
+library(optparse)
 
+options <- list(
+    make_option(c("-d", "--detection-method"), action = "store", default = "", type = "character", help = "Which decoding to run."),
+    make_option(c("-s", "--dataset"), action = "store", default = "", type = "character", help = "Which dataset to run.")
+)
+
+args <- parse_args(OptionParser(option_list = options))
+DETECTION_METHOD <- args$d
 myspread <- function(df, key, value) {
   # quote key
   keyq <- rlang::enquo(key)
@@ -39,7 +47,7 @@ reading_measures <- c("Fix", "FPReg", "FPRT", "TFT")
 
 df_all <- data.frame()
 for (reading_measure in reading_measures) {
-  model_fit <- readRDS(paste0("decoding_", reading_measure, "_minimum_duration_300_velocity_threshold_20.0.rds"))
+  model_fit <- readRDS(paste0("decoding_", reading_measure, "_", DETECTION_METHOD))
   for (predictor in predictors) {
     summary <- summary(model_fit)
     summary <- summary$fixed
@@ -84,7 +92,7 @@ df_final <- rbind(df_all_no_backtf, df_backtf)
 # reorder factors for plotting (like above)
 df_final$predictor <- factor(df_final$predictor, levels = c("word_length", "log_lex_freq", "surprisal", "last_in_line"))
 #  rename predictors
-df_final$predictor <- factor(df_final$predictor, labels = c("Word length", "Lexical frequency", "Surprisal", "Last in line"))
+df_final$predictor <- factor(df_final$predictor, labels = c("Word length", "Lexical freq.", "Surprisal", "Last in line"))
 # rename reading measures
 df_final$reading_measure <- factor(df_final$reading_measure, labels = c("Fixated", "First-pass regression", "First-pass reading time", "Total fixation time"))
 
@@ -100,17 +108,21 @@ ggplot(data = df_final, aes(x = predictor, y = m, colour = predictor)) +
   geom_errorbar(aes(ymin = lower, ymax = upper),
     width = .1, position = position_dodge(width = .5), linewidth = 0.4
   ) +
-  #  scale_y_continuous(labels = function(x) format(x, scientific = TRUE)) +
+  # scale_y_continuous(labels = function(x) format(x, scientific = TRUE)) +
   facet_wrap(~reading_measure, scales = "free_y", ncol = 4) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   ylab("Effect size") +
   xlab("Predictor") +
-  # theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  #  scale_colour_viridis(discrete = TRUE, option = "H") +
-  scale_colour_manual(values = wes_palette("Zissou1")[c(1, 3, 5)]) +
-  #  increase font size
-  theme(text = element_text(family = "sans"), axis.text.x = element_text(size = 11), axis.text.y = element_text(size = 11), axis.title = element_text(size = 13)) +
-  theme(legend.position = "bottom") + #  remove legend for color
+  scale_colour_manual(values = wes_palette("Rushmore1")[c(1, 4, 5)]) +
+  theme(
+    text = element_text(family = "sans"),
+    axis.text.x = element_text(size = 16, angle = 45, hjust = 1),  # Rotate X-axis labels
+    axis.text.y = element_text(size = 16),
+    axis.title = element_text(size = 16),
+    strip.text = element_text(size = 16)
+  ) +
+  theme(legend.position = "bottom") +
   guides(color = "none")
 
-ggsave("effect_sizes.pdf", width = 16, height = 5, dpi = 150)
+
+ggsave(paste0(DATASET, "/effect_sizes_", DETECTION_METHOD, ".pdf"), width = 16, height = 5, dpi = 150)
