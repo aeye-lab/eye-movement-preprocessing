@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import sys
-# to be changed after release!!!
-sys.path.append('/mnt/mlshare/prasse/aeye_git/pymovements/src/')
 
 import os
 import numpy as np
@@ -664,51 +661,8 @@ def evaluate_model(args):
             dataset.load(preprocessed=False,
                     )
         except:
-            pass
-
-        dataset.definition.time_column = 'time'
-        dataset.definition.trial_columns = ['subject_id','speech_id','paragraph_id','trial_id']
-        dataset.definition.time_unit = 'ms'
-        dataset.definition.pixel_columns = ['x_right', 'y_right']
-
-        import glob
-        csv_dir = '/mnt/mlshare/prasse/aeye_git/eye-movement-preprocessing/data/CopCo/csvs/'
-        csv_files = glob.glob(csv_dir + '*.csv')
-        subject_id = []
-        filepath = []
-        for file in csv_files:
-            subject_id.append(file.split('/')[-1].replace('P','').replace('.csv',''))
-            filepath.append(file)
-        out_df = pl.DataFrame({'subject_id':subject_id,
-                               'filepath':filepath
-                              }
-                )
-        dataset.fileinfo['gaze'] = out_df
-
-        dataset.definition.custom_read_kwargs['gaze'] = {
-                        'schema_overrides': {
-                            'time': pl.Int64,
-                            'x_right': pl.Float32,
-                            'y_right': pl.Float32,
-                            'pupil_right': pl.Float32,
-                        },
-                        'separator': ',',
-                    }
-
-        dataset.definition.filename_format_schema_overrides['gaze'] = {
-                        'subject_id': int,
-                        'speech_id': int,
-                        'paragraph_id': int,
-                        'trial_id': int,
-                    }        
-
-        try:
-            dataset.load_gaze_files(preprocessed=False,
-                    )
-        except:
             dataset.download()
-            dataset.load_gaze_files(preprocessed=False,
-                    )
+            dataset.load(preprocessed=False)
 
         if max_len is not None:
             print('### Cut Sequences ###')

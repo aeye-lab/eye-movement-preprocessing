@@ -9,8 +9,6 @@ warnings.filterwarnings("ignore")
 # pers. communication). In addition to these existing metrics, we calculate two metrics derived from the curve fitting procedure 
 
 
-# written by Paul Prasse
-
 import numpy as np
 
 

@@ -1,6 +1,5 @@
 # adapt the code from https://digital.library.txstate.edu/handle/10877/6874
 # smooth the velocities and degrees of visual angle
-# written by Paul Prasse
 
 
 import numpy as np

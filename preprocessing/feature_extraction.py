@@ -1,5 +1,3 @@
-# written by Paul Prasse
-
 import numpy as np
 from scipy.spatial import distance as distance
 from scipy.stats import skew, kurtosis
