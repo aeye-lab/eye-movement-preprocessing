@@ -16,7 +16,7 @@ from joblib import Parallel, delayed
 #           blink_theshold :consider value above as blink (only important if flag_use_eye_state_label is False)
 # returns:
 #   list of lists, where each sublist contains the indexes of the blink
-def get_blink_events_from_eye_closures(eye_closures, blink_threshold=0.6):
+def get_blink_events_from_eye_closures(eye_closures, blink_threshold=0.6):    
     blink_events = []
     prev_label = False
     cur_blink_event = []
@@ -883,10 +883,15 @@ def get_pupil_features(pupil,
                        feature_aggregations = ['mean', 'std', 'median', 'skew', 'kurtosis'],
                       ):
     
-    pupil_mean = pupil
-    tmp_2 = np.zeros(pupil_mean.shape)
-    tmp_2[1:] = pupil_mean[:-1]
-    gradient = pupil_mean - tmp_2
+    try:
+        pupil_mean = pupil
+        tmp_2 = np.zeros(pupil_mean.shape)
+        tmp_2[1:] = pupil_mean[:-1]
+        gradient = pupil_mean - tmp_2
+    except:
+        # initialize dummy values
+        gradient = np.zeros([10,1])
+        pupil_mean = np.zeros([10,1])
     
     feature_names = []
     features = []
@@ -1642,6 +1647,7 @@ def get_gaze_entropy_features(fixation_list,
 #    feature_aggregations: list of aggregations performed on list of values
 #    use_eye_closure_features: flag indicating, if eye closure features should be used
 #    use_pupil_features: flag indicating, if pupil features should be used
+#    flag_use_eye_state_label: flag indicating, if eye closure should be used to determine closed eyes
 def compute_features(input_df,
                     sampling_rate,
                     blink_threshold,
@@ -1651,6 +1657,7 @@ def compute_features(input_df,
                     feature_aggregations,
                     use_eye_closure_features=True,
                     use_pupil_features=True,
+                    flag_use_eye_state_label=False,
                     ):
     if 'pixel_x' not in input_df.columns:
         x_pixel = np.zeros([input_df.shape[0],])
@@ -1661,7 +1668,7 @@ def compute_features(input_df,
     else:
         y_pixel = np.array(input_df['pixel_y'])
     if 'eye_closure' in input_df.columns:            
-        eye_closures = np.array(input_df['eye_closure'])
+        eye_closures = np.array(input_df['eye_closure'], dtype=np.float32)
     else:
         eye_closures = np.zeros(x_pixel.shape)
     if 'blink' in input_df.columns:  
@@ -1670,10 +1677,13 @@ def compute_features(input_df,
         eye_blink = np.zeros(x_pixel.shape)
     corrupt = np.array(input_df['event_type'] == -1, dtype=np.int32)
     if 'pupil_left' in input_df.columns:  
-        pupil = np.array(input_df['pupil_left'])
+        pupil = np.array(input_df['pupil_left'], dtype=np.float32)
     else:
         pupil = np.zeros(x_pixel.shape)
 
+    eye_closures[np.isnan(eye_closures)] = 0.0
+    pupil[np.isnan(pupil)] = 0.0
+    
     # get degrees of visual angle
     x_dva = np.array(input_df['position_x'])
     y_dva = np.array(input_df['position_y'])
@@ -1736,7 +1746,7 @@ def compute_features(input_df,
         eye_closure_features, eye_closure_feature_names = compute_eye_closure_features(eye_closures, eye_blink,
                                                                                        blink_threshold=blink_threshold,
                                                                                        window_size=blink_window_size,
-                                                                                       flag_use_eye_state_label=True,
+                                                                                       flag_use_eye_state_label=flag_use_eye_state_label,
                                                                                        min_duration=blink_min_duration,
                                                                                        close_labels=[1],
                                                                                        velocity_threshold=blink_velocity_threshold,

@@ -72,6 +72,7 @@ def get_feature_matrix(dataset,
                     return_feature_names=False,
                     use_eye_closure_features=False,
                     use_pupil_features=False,
+                    flag_use_eye_state_label=False,
                     ):
                         
     event_name_dict = config.event_name_dict
@@ -146,6 +147,7 @@ def get_feature_matrix(dataset,
                             feature_aggregations,
                             use_eye_closure_features=use_eye_closure_features,
                             use_pupil_features=use_pupil_features,
+                            flag_use_eye_state_label=flag_use_eye_state_label,
                             )
             if iter_counter == 0:
                 feature_matrix = np.zeros([num_add, len(combined_features)])
@@ -184,6 +186,7 @@ def get_feature_matrix_parallel(dataset,
                     use_eye_closure_features=False,
                     use_pupil_features=False,
                     n_jobs=40,
+                    flag_use_eye_state_label = False,
                     ):
                         
     event_name_dict = config.event_name_dict
@@ -287,7 +290,8 @@ def get_feature_matrix_parallel(dataset,
                                                                     blink_velocity_threshold,
                                                                     feature_aggregations,
                                                                     use_eye_closure_features,
-                                                                    use_pupil_features
+                                                                    use_pupil_features,
+                                                                    flag_use_eye_state_label,
                                                                     ) for i in use_ids[p_run])
         
         res, feature_names = zip(*X_features_list)
@@ -300,7 +304,11 @@ def get_feature_matrix_parallel(dataset,
             start_id += 1
     
     feature_matrix = X_features
-    combined_feature_names = feature_names[0]
+    
+    combined_feature_names = []
+    for i in range(len(feature_names)):
+        if len(feature_names[i]) > len(combined_feature_names):
+            combined_feature_names = feature_names[i]
     feature_matrix[np.isnan(feature_matrix)] = 0.0
     if return_feature_names:
         return feature_matrix, group_names, splitting_names, combined_feature_names
