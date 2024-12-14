@@ -16,7 +16,8 @@ suppressPackageStartupMessages({
 options <- list(
     make_option(c("-r", "--responseVar"), action = "store", default = "FPRT", type = "character", help = "Response variable to model."),
     make_option(c("-i", "--iterations"), action = "store", default = 6000, type = "integer", help = "How many iterations to run."),
-    make_option(c("-d", "--detection-method"), action = "store", default = "", type = "character", help = "Which decoding to run.")
+    make_option(c("-d", "--detection-method"), action = "store", default = "", type = "character", help = "Which decoding to run."),
+    make_option(c("-s", "--dataset-set"), action = "store", default = "", type = "character", help = "Which dataset to run.")
 )
 
 args <- parse_args(OptionParser(option_list = options))
@@ -24,6 +25,7 @@ args <- parse_args(OptionParser(option_list = options))
 ITERATIONS <- args$i
 WUP_ITERATIONS <- 2000
 DETECTION_METHOD <- args$d
+DATASET <- args$s
 
 options(mc.cores = parallel::detectCores())
 run_loglin_model <- function(formula, data) {
@@ -94,7 +96,7 @@ LOG_LINEAR_VARIABLES <- c("FFD", "SFD", "FD", "FPRT", "FRT", "TFT", "RRT", "word
 BINARY_VARIABLES <- c("Fix", "FPF", "RR", "FPReg")
 COUNT_VARIABLES <- c("TFC")
 
-data_raw <- read.csv(paste0("merged_rm_files/EMTeC/", DETECTION_METHOD, "/reading_measures.csv"), header = TRUE, sep = "\t")
+data_raw <- read.csv(paste0("merged_rm_files/", DATASET, "/", DETECTION_METHOD, "/reading_measures.csv"), header = TRUE, sep = "\t")
 data <- preprocess(data_raw)
 
 formula <- paste0(
@@ -113,4 +115,4 @@ if (args$r %in% LOG_LINEAR_VARIABLES) {
     model <- run_poisson_model(formula, data)
 }
 
-saveRDS(model, file = paste0("decoding_", args$r, "_", DETECTION_METHOD, ".rds"))
+saveRDS(model, file = paste0(DATASET, "/decoding_", args$r, "_", DETECTION_METHOD, ".rds"))
