@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import sys
-# to be changed after release!!!
-sys.path.append('/mnt/mlshare/prasse/aeye_git/pymovements/src/')
 
 import os
 import numpy as np
